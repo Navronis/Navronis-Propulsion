@@ -130,7 +130,35 @@ from kryptonis.propulsion_equations.nozzle import (
     NozzleResult,
 )
 
-__version__ = "0.4.0"
+from kryptonis.propulsion_equations.cycle import (
+    pump_head,
+    pump_power,
+    pump_specific_speed,
+    pump_suction_specific_speed,
+    pump_npsh_required,
+    pump_impeller_tip_speed,
+    turbine_power,
+    size_pressure_fed_cycle,
+    size_gas_generator_cycle,
+    size_expander_cycle,
+    size_staged_combustion_cycle,
+    size_full_flow_staged_combustion_cycle,
+    EngineCycleDesign,
+    EngineCycleResult,
+)
+
+from kryptonis.propulsion_equations.trajectory import (
+    transonic_drag_coefficient,
+    TrajectorySimulation,
+    TrajectoryResult,
+)
+
+from kryptonis.propulsion_equations.system import (
+    EngineSystem,
+    EngineSystemResult,
+)
+
+__version__ = "0.5.0"
 __all__ = [
     # Units & result containers
     "Result", "Status", "EvidenceLevel", "Verification", "Validation", "Assumption",
@@ -172,4 +200,14 @@ __all__ = [
     "RegenCoolingJacket", "RegenChannelResult",
     # Day 4: Supersonic Nozzle & Altitude Performance API
     "standard_atmosphere", "NozzleDesign", "NozzleResult",
+    # Day 5: Turbomachinery Cycles & Power Balance API
+    "pump_head", "pump_power", "pump_specific_speed", "pump_suction_specific_speed",
+    "pump_npsh_required", "pump_impeller_tip_speed", "turbine_power",
+    "size_pressure_fed_cycle", "size_gas_generator_cycle", "size_expander_cycle",
+    "size_staged_combustion_cycle", "size_full_flow_staged_combustion_cycle",
+    "EngineCycleDesign", "EngineCycleResult",
+    # Day 5: Ascent Trajectory & Mission Performance API
+    "transonic_drag_coefficient", "TrajectorySimulation", "TrajectoryResult",
+    # Day 5: Unified Master Engine Architecture API
+    "EngineSystem", "EngineSystemResult",
 ]

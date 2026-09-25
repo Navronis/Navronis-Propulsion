@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kryptonis-propulsion-equations"
-version = "0.4.0"
-description = "Authority-controlled analytical equations for liquid rocket propulsion, thrust chamber sizing, injector head & atomization, Bartz heat transfer, regenerative cooling, and nozzle gas dynamics."
+version = "0.5.0"
+description = "Authority-controlled analytical equations for liquid rocket propulsion: combustor sizing, 4 canonical injectors, regenerative cooling, supersonic nozzles, turbomachinery power balance cycles, and ascent flight trajectory."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
@@ -58,10 +58,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/Ritik27Payak/Navronis"
-Documentation = "https://github.com/Ritik27Payak/Navronis/tree/main/docs"
-Repository = "https://github.com/Ritik27Payak/Navronis.git"
-Issues = "https://github.com/Ritik27Payak/Navronis/issues"
+Homepage = "https://github.com/Navronis/Navronis-Propulsion"
+Documentation = "https://github.com/Navronis/Navronis-Propulsion/tree/main/docs"
+Repository = "https://github.com/Navronis/Navronis-Propulsion.git"
+Issues = "https://github.com/Navronis/Navronis-Propulsion/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]

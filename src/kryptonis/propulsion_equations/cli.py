@@ -446,14 +446,168 @@ def run_nozzle_sizing(
     return 0
 
 
+def run_cycle_sizing(
+    thrust_n: float,
+    pc_bar: float,
+    propellants: str = "LOX/RP-1",
+    cycle: str = "gas_generator",
+    mixture_ratio: float | None = None,
+) -> int:
+    from kryptonis.propulsion_equations.cycle import EngineCycleDesign
+    from kryptonis.propulsion_equations.chamber import get_thermochemical_preset, c_star_ideal
+
+    defaults = get_thermochemical_preset(propellants)
+    c_star_res = c_star_ideal(gamma=defaults["gamma"], molar_mass_kg_per_mol=defaults["mw"], chamber_temperature_K=defaults["tc"])
+    c_star = c_star_res.value
+    cf_est = 1.75
+    isp_est = (c_star * cf_est) / 9.80665
+
+    mr = mixture_ratio if mixture_ratio is not None else (
+        2.6 if "RP-1" in propellants else (
+            3.5 if "CH4" in propellants else (
+                6.0 if "LH2" in propellants else 1.8
+            )
+        )
+    )
+
+    mdot_total = thrust_n / (isp_est * 9.80665)
+    mdot_fuel = mdot_total / (1.0 + mr)
+    mdot_ox = mdot_total - mdot_fuel
+
+    rho_ox = 1141.0
+    if "RP-1" in propellants:
+        rho_fuel = 810.0
+    elif "CH4" in propellants:
+        rho_fuel = 422.0
+    elif "LH2" in propellants:
+        rho_fuel = 71.0
+    elif "MMH" in propellants:
+        rho_fuel = 880.0
+        rho_ox = 1442.0
+    elif "Ethanol" in propellants:
+        rho_fuel = 789.0
+        rho_ox = 1220.0
+    else:
+        rho_fuel = 800.0
+
+    design = EngineCycleDesign(
+        cycle_type=cycle,
+        p_chamber_Pa=pc_bar * 1.0e5,
+        m_dot_ox_kg_s=mdot_ox,
+        m_dot_fuel_kg_s=mdot_fuel,
+        rho_ox_kg_m3=rho_ox,
+        rho_fuel_kg_m3=rho_fuel,
+        main_isp_vac_s=isp_est,
+    )
+    result = design.solve()
+
+    print("=" * 78)
+    print("       KRYPTONIS PROPULSION ENGINE SIZER -- COMPONENT 5: TURBOPUMP & CYCLE")
+    print("=" * 78)
+    print(f"Cycle Architecture:      {result.cycle_type.upper()}")
+    print(f"Propellants:             {propellants} (O/F = {mr:.2f})")
+    print(f"Chamber Pressure:        {result.p_chamber_bar:.1f} bar")
+    print(f"Main Mass Flow:          {result.m_dot_total_kg_s:.2f} kg/s (Ox: {result.m_dot_ox_kg_s:.2f}, Fuel: {result.m_dot_fuel_kg_s:.2f})")
+    print("-" * 78)
+    print("PUMP HYDRAULICS & TURBINE EXPANSION")
+    print("-" * 78)
+    print(f"Oxidizer Pump Power:     {result.power_pump_ox_kW:.1f} kW")
+    print(f"Fuel Pump Power:         {result.power_pump_fuel_kW:.1f} kW")
+    print(f"Total Pumping Power:     {result.total_pump_power_kW:.1f} kW")
+    print(f"Delivered Vacuum Isp:    {result.net_isp_vac_s:.1f} s (Penalty: {result.isp_penalty_s:.2f} s)")
+    print(f"Power Balance Status:    {'FEASIBLE / CLOSED' if result.cycle_feasible else 'INSUFFICIENT POWER MARGIN'}")
+
+    details = result.details
+    if "p_pump_ox_bar" in details:
+        print(f"Oxidizer Pump Discharge: {details['p_pump_ox_bar']:.1f} bar")
+    if "p_pump_fuel_bar" in details:
+        print(f"Fuel Pump Discharge:     {details['p_pump_fuel_bar']:.1f} bar")
+    if "alpha_gas_generator_fraction" in details:
+        print(f"GG Gas Mass Fraction:    {details['alpha_gas_generator_fraction'] * 100:.2f}%")
+    if "pressurant_mass_kg" in details:
+        print(f"Pressurant Gas Mass:     {details['pressurant_mass_kg']:.2f} kg ({details.get('pressurant_gas', 'Helium')})")
+    if "power_balance_margin" in details:
+        print(f"Power Balance Margin:    {details['power_balance_margin']:.2f}x")
+    print("=" * 78)
+    return 0
+
+
+def run_trajectory_sizing(
+    thrust_n: float,
+    isp_sl: float = 285.0,
+    isp_vac: float = 320.0,
+    vehicle_mass_kg: float = 12000.0,
+    payload_mass_kg: float = 350.0,
+    burn_time_s: float = 150.0,
+) -> int:
+    from kryptonis.propulsion_equations.trajectory import TrajectorySimulation
+    # Typical structural mass fraction ~ 0.08 of stage propellant mass
+    dry_mass_kg = payload_mass_kg + 0.08 * (vehicle_mass_kg - payload_mass_kg)
+    sim = TrajectorySimulation(
+        m0_kg=vehicle_mass_kg,
+        m_dry_kg=dry_mass_kg,
+        thrust_sl_N=thrust_n,
+        thrust_vac_N=thrust_n * (isp_vac / isp_sl),
+        isp_sl_s=isp_sl,
+        isp_vac_s=isp_vac,
+        burn_time_s=burn_time_s,
+    )
+    res = sim.run()
+    print("=" * 78)
+    print("      KRYPTONIS PROPULSION FLIGHT SIMULATOR -- 2D POWERED ASCENT")
+    print("=" * 78)
+    print(f"Liftoff Mass (GLOW):     {vehicle_mass_kg:.1f} kg (Burnout Dry: {dry_mass_kg:.1f} kg)")
+    print(f"Burnout Altitude:        {res.burnout_altitude_km:.2f} km")
+    print(f"Burnout Velocity:        {res.burnout_velocity_m_s:.1f} m/s (Mach {res.burnout_mach:.2f})")
+    print(f"Flight Path Angle:       {res.burnout_flight_path_angle_deg:.2f} deg from horizontal")
+    print(f"Downrange Distance:      {res.downrange_distance_km:.2f} km")
+    print(f"Max Dynamic Pressure:    {res.max_q_kPa:.2f} kPa at {res.max_q_altitude_km:.2f} km (t = {res.max_q_time_s:.1f} s)")
+    print(f"Ideal Tsiolkovsky DeltaV:{res.delta_v_ideal_m_s:.1f} m/s")
+    print(f"Gravity Loss (Delta V):  {res.delta_v_gravity_loss_m_s:.1f} m/s")
+    print(f"Aerodynamic Drag Loss:   {res.delta_v_drag_loss_m_s:.1f} m/s")
+    print(f"Delivered Net Delta V:   {res.delta_v_delivered_m_s:.1f} m/s")
+    print(f"Orbital Deficit (LEO):   {res.orbital_velocity_deficit_m_s:.1f} m/s")
+    print(f"Est. LEO Payload Cap:    {res.max_payload_leo_kg:.1f} kg")
+    print("=" * 78)
+    return 0
+
+
+def run_system_sizing(
+    thrust_n: float,
+    pc_bar: float,
+    propellants: str = "LOX/CH4",
+    cycle: str = "gas_generator",
+    expansion_ratio: float = 35.0,
+    vehicle_mass_kg: float = 12000.0,
+    payload_mass_kg: float = 350.0,
+) -> int:
+    from kryptonis.propulsion_equations.system import EngineSystem
+    engine = EngineSystem(
+        name="Navronis-Master-Engine",
+        thrust_sea_level=thrust_n,
+        chamber_pressure=pc_bar * 1.0e5,
+        propellant=propellants,
+        cycle_type=cycle,
+        expansion_ratio=expansion_ratio,
+        vehicle_liftoff_mass_kg=vehicle_mass_kg,
+        payload_mass_kg=payload_mass_kg,
+    )
+    res = engine.solve()
+    print(res.summary_report())
+    return 0
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="navronis",
-        description="Authority-controlled analytical sizing for liquid rocket engine thrust chambers and injectors.",
+        description="Authority-controlled analytical sizing for liquid rocket engine thrust chambers, injectors, nozzles, cycles, and flight trajectory.",
     )
     parser.add_argument(
-        "--subsystem", default="chamber", choices=["chamber", "injector", "cooling", "regen", "nozzle", "aero"],
-        help="Subsystem to size: 'chamber', 'injector', 'cooling', or 'nozzle'",
+        "--subsystem", default="chamber", choices=[
+            "chamber", "injector", "cooling", "regen", "nozzle", "aero",
+            "cycle", "turbopump", "trajectory", "flight", "system",
+        ],
+        help="Subsystem to size: 'chamber', 'injector', 'cooling', 'nozzle', 'cycle', 'trajectory', or 'system'",
     )
     parser.add_argument(
         "--injector-type", default="coaxial", choices=["coaxial", "swirl", "pintle", "impinging"],
@@ -545,6 +699,29 @@ def main() -> None:
         help="Structural safety factor (default: 1.5)",
     )
 
+    # Turbomachinery, cycle, & flight trajectory options
+    parser.add_argument(
+        "--cycle", default="gas_generator",
+        choices=["gas_generator", "staged_combustion", "expander", "full_flow", "pressure_fed"],
+        help="Engine turbomachinery power balance cycle (default: gas_generator)",
+    )
+    parser.add_argument(
+        "--mixture-ratio", "--mr", type=float, default=None,
+        help="Propellant oxidizer-to-fuel mass ratio (O/F)",
+    )
+    parser.add_argument(
+        "--vehicle-mass", type=float, default=12000.0,
+        help="Vehicle liftoff gross mass in kg (default: 12000.0 kg)",
+    )
+    parser.add_argument(
+        "--payload-mass", type=float, default=350.0,
+        help="Payload mass to orbit in kg (default: 350.0 kg)",
+    )
+    parser.add_argument(
+        "--burn-time", type=float, default=150.0,
+        help="Engine stage burn duration in seconds (default: 150.0 s)",
+    )
+
     # Visualization & export
     parser.add_argument(
         "--plot", action="store_true",
@@ -568,6 +745,40 @@ def main() -> None:
     )
 
     args = parser.parse_args()
+
+    if args.subsystem in {"cycle", "turbopump"}:
+        sys.exit(
+            run_cycle_sizing(
+                thrust_n=args.thrust,
+                pc_bar=args.pc,
+                propellants=args.propellants,
+                cycle=args.cycle,
+                mixture_ratio=args.mixture_ratio,
+            )
+        )
+
+    if args.subsystem in {"trajectory", "flight"}:
+        sys.exit(
+            run_trajectory_sizing(
+                thrust_n=args.thrust,
+                vehicle_mass_kg=args.vehicle_mass,
+                payload_mass_kg=args.payload_mass,
+                burn_time_s=args.burn_time,
+            )
+        )
+
+    if args.subsystem == "system":
+        sys.exit(
+            run_system_sizing(
+                thrust_n=args.thrust,
+                pc_bar=args.pc,
+                propellants=args.propellants,
+                cycle=args.cycle,
+                expansion_ratio=args.expansion_ratio,
+                vehicle_mass_kg=args.vehicle_mass,
+                payload_mass_kg=args.payload_mass,
+            )
+        )
 
     if args.subsystem in {"cooling", "regen"}:
         sys.exit(
