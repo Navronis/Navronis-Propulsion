@@ -584,16 +584,59 @@ def run_system_sizing(
     from kryptonis.propulsion_equations.system import EngineSystem
     engine = EngineSystem(
         name="Navronis-Master-Engine",
-        thrust_sea_level=thrust_n,
-        chamber_pressure=pc_bar * 1.0e5,
+        thrust_vac_N=thrust_n,
+        p_chamber_Pa=pc_bar * 1.0e5,
         propellant=propellants,
-        cycle_type=cycle,
+        cycle=cycle,
         expansion_ratio=expansion_ratio,
-        vehicle_liftoff_mass_kg=vehicle_mass_kg,
-        payload_mass_kg=payload_mass_kg,
+        simulate_flight=True,
     )
     res = engine.solve()
     print(res.summary_report())
+    return 0
+
+
+def run_engine_benchmark(engine_name: str | None = None, error_tolerance: float = 15.0) -> int:
+    from kryptonis.propulsion_equations.engine_deck import EngineBenchmark, benchmark_all_engines
+    if engine_name and engine_name.lower() != "all":
+        bm = EngineBenchmark(engine_name, error_tolerance_percent=error_tolerance)
+        res = bm.run()
+        print(res.summary_table())
+        return 0 if res.passed else 1
+    else:
+        results = benchmark_all_engines(error_tolerance_percent=error_tolerance)
+        print("=" * 82)
+        print("     NAVRONIS FLIGHT ENGINE VERIFICATION BENCHMARK SCOREBOARD (DAY 6)")
+        print("=" * 82)
+        print(f"  {'ENGINE':<34} | {'MEAN ERROR':<12} | {'MAX ERROR':<12} | {'STATUS'}")
+        print("-" * 82)
+        all_passed = True
+        for k, res in results.items():
+            status_str = "PASS" if res.passed else "WARN"
+            if not res.passed:
+                all_passed = False
+            print(f"  {res.engine_name:<34} | {res.mean_absolute_error_percent:<10.2f}% | {res.max_error_percent:<10.2f}% | {status_str}")
+        print("=" * 82)
+        return 0 if all_passed else 1
+
+
+def run_throttle_analysis(
+    thrust_n: float,
+    pc_bar: float,
+    expansion_ratio: float = 25.0,
+    min_throttle: float = 0.40,
+    max_throttle: float = 1.00,
+    step: float = 0.10,
+) -> int:
+    from kryptonis.propulsion_equations.throttle import ThrottlingAnalysis
+    analyzer = ThrottlingAnalysis(
+        engine_name="Throttle-Study",
+        thrust_nominal_N=thrust_n,
+        chamber_pressure_nominal_Pa=pc_bar * 1.0e5,
+        expansion_ratio=expansion_ratio,
+    )
+    res = analyzer.sweep(min_throttle=min_throttle, max_throttle=max_throttle, step=step)
+    print(res.summary_table())
     return 0
 
 
@@ -606,8 +649,9 @@ def main() -> None:
         "--subsystem", default="chamber", choices=[
             "chamber", "injector", "cooling", "regen", "nozzle", "aero",
             "cycle", "turbopump", "trajectory", "flight", "system",
+            "benchmark", "deck", "throttle",
         ],
-        help="Subsystem to size: 'chamber', 'injector', 'cooling', 'nozzle', 'cycle', 'trajectory', or 'system'",
+        help="Subsystem to size: 'chamber', 'injector', 'cooling', 'nozzle', 'cycle', 'trajectory', 'system', 'benchmark', or 'throttle'",
     )
     parser.add_argument(
         "--injector-type", default="coaxial", choices=["coaxial", "swirl", "pintle", "impinging"],
@@ -702,7 +746,7 @@ def main() -> None:
     # Turbomachinery, cycle, & flight trajectory options
     parser.add_argument(
         "--cycle", default="gas_generator",
-        choices=["gas_generator", "staged_combustion", "expander", "full_flow", "pressure_fed"],
+        choices=["gas_generator", "staged_combustion", "expander", "full_flow", "pressure_fed", "electric_pump"],
         help="Engine turbomachinery power balance cycle (default: gas_generator)",
     )
     parser.add_argument(
@@ -720,6 +764,21 @@ def main() -> None:
     parser.add_argument(
         "--burn-time", type=float, default=150.0,
         help="Engine stage burn duration in seconds (default: 150.0 s)",
+    )
+
+    # Day 6: Flight Engine Benchmark & Throttle Options
+    parser.add_argument(
+        "--engine", default=None,
+        choices=["merlin1d", "raptor2", "rs25", "rd180", "rl10", "rutherford", "lmde", "all"],
+        help="Target flight engine benchmark deck (e.g. merlin1d, raptor2, rs25)",
+    )
+    parser.add_argument(
+        "--benchmark", action="store_true",
+        help="Run benchmark against published test-stand and flight literature data",
+    )
+    parser.add_argument(
+        "--throttle", type=float, default=None,
+        help="Evaluate off-design throttle fraction (e.g. 0.60 for 60%% thrust)",
     )
 
     # Visualization & export
@@ -745,6 +804,25 @@ def main() -> None:
     )
 
     args = parser.parse_args()
+
+    # Day 6: Benchmarks and Throttling
+    if args.benchmark or args.subsystem in {"benchmark", "deck"} or (args.engine is not None and args.subsystem != "throttle"):
+        sys.exit(run_engine_benchmark(engine_name=args.engine))
+
+    if args.subsystem == "throttle" or args.throttle is not None:
+        min_th = args.throttle if args.throttle is not None else 0.40
+        max_th = args.throttle if args.throttle is not None else 1.00
+        step_th = 0.10 if args.throttle is None else 0.05
+        sys.exit(
+            run_throttle_analysis(
+                thrust_n=args.thrust,
+                pc_bar=args.pc,
+                expansion_ratio=args.expansion_ratio,
+                min_throttle=min_th,
+                max_throttle=max_th,
+                step=step_th,
+            )
+        )
 
     if args.subsystem in {"cycle", "turbopump"}:
         sys.exit(

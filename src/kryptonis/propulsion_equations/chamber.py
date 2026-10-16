@@ -197,9 +197,9 @@ THERMOCHEMICAL_PRESETS: dict[str, dict[str, Any]] = {
         "coolant": "CH4",
     },
     "LOX/LH2": {
-        "gamma": 1.23,
-        "mw": 0.0150,
-        "tc": 3250.0,
+        "gamma": 1.22,
+        "mw": 0.0125,
+        "tc": 3600.0,
         "l_star": 0.85,
         "c_star": 2350.0,
         "of": 6.0,

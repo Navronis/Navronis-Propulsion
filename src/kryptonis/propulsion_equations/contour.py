@@ -146,7 +146,16 @@ def generate_rao_bell_coordinates(R_t, R_e, fractional_length=0.8, theta_n_deg=3
     # Intersection:
     # m1*x + R_t = m2*x - m2*L_bell + R_e
     # x(m1 - m2) = R_e - R_t - m2*L_bell
-    P1_x = (R_e - R_t - m2 * L_bell) / (m1 - m2)
+    denom = m1 - m2
+    if abs(denom) < 1e-9:
+        raise ValueError("Initial angle theta_n and exit angle theta_e cannot be identical in a Rao bell.")
+    P1_x = (R_e - R_t - m2 * L_bell) / denom
+    if P1_x <= 0.0 or P1_x >= L_bell:
+        raise ValueError(
+            f"Invalid Rao bell angles: theta_n={theta_n_deg}° and theta_e={theta_e_deg}° "
+            f"yield control point P1_x={P1_x * 1e3:.1f} mm outside [0, {L_bell * 1e3:.1f} mm]. "
+            f"theta_n must be steeper than the bell chord angle."
+        )
     P1_y = m1 * P1_x + R_t
     
     # Generate quadratic bezier points

@@ -49,6 +49,7 @@ CITATIONS: Dict[str, str] = {
     "staged_combustion_balance": "Huzel & Huang (1992), Ch. 2.4, High-Pressure Staged Combustion Cycles",
     "ffsc_balance": "Sutton & Biblarz (2016), Ch. 10.4; Yang & Anderson (1995), Liquid Rocket Engine Combustion Instability",
     "pressure_fed_pressurant": "Huzel & Huang (1992), Ch. 7, Pressurization Systems, Eq. (7-4)",
+    "electric_pump_cycle": "Rachov, P. et al. (2010), Electric Feed System for Liquid Rocket Engines, J. Spacecraft & Rockets; Rocket Lab Rutherford System",
 }
 
 STANDARD_GRAVITY: float = 9.80665
@@ -537,6 +538,113 @@ def size_full_flow_staged_combustion_cycle(
     }
 
 
+def size_electric_pump_cycle(
+    p_chamber_Pa: float,
+    m_dot_ox_kg_s: float,
+    m_dot_fuel_kg_s: float,
+    rho_ox_kg_m3: float,
+    rho_fuel_kg_m3: float,
+    main_isp_vac_s: float,
+    burn_time_s: float = 160.0,
+    dp_injector_ratio: float = 0.20,
+    dp_regen_bar: float = 20.0,
+    pump_eff_ox: float = 0.72,
+    pump_eff_fuel: float = 0.70,
+    motor_efficiency: float = 0.95,
+    inverter_efficiency: float = 0.96,
+    battery_energy_density_Wh_kg: float = 250.0,
+    battery_dod: float = 0.85,
+    motor_power_density_kW_kg: float = 5.5,
+) -> Dict[str, Any]:
+    """Sizes an electric-motor-driven battery turbopump cycle (Rocket Lab Rutherford architecture).
+
+    Parameters
+    ----------
+    p_chamber_Pa : float
+        Combustion chamber pressure (Pa).
+    m_dot_ox_kg_s : float
+        Oxidizer mass flow rate (kg/s).
+    m_dot_fuel_kg_s : float
+        Fuel mass flow rate (kg/s).
+    rho_ox_kg_m3 : float
+        Oxidizer liquid density (kg/m^3).
+    rho_fuel_kg_m3 : float
+        Fuel liquid density (kg/m^3).
+    main_isp_vac_s : float
+        Ideal vacuum specific impulse without dump penalty (s).
+    burn_time_s : float
+        Stage burn duration in seconds (default 160 s).
+    dp_injector_ratio : float
+        Injector delta P ratio (default 0.20).
+    dp_regen_bar : float
+        Regenerative cooling jacket pressure drop (bar, default 20 bar).
+    pump_eff_ox : float
+        Oxidizer centrifugal pump efficiency (default 0.72).
+    pump_eff_fuel : float
+        Fuel centrifugal pump efficiency (default 0.70).
+    motor_efficiency : float
+        Brushless DC (BLDC) motor electrical-to-mechanical efficiency (default 0.95).
+    inverter_efficiency : float
+        DC-to-AC motor inverter drive efficiency (default 0.96).
+    battery_energy_density_Wh_kg : float
+        Pack-level specific energy density in Wh/kg (default 250 Wh/kg for aerospace Li-ion).
+    battery_dod : float
+        Max allowable battery depth-of-discharge (default 0.85).
+    motor_power_density_kW_kg : float
+        Electric motor continuous power density in kW/kg (default 5.5 kW/kg).
+
+    Returns
+    -------
+    Dict[str, Any]
+        Complete electric turbopump power, battery mass, motor mass, and sizing.
+    """
+    if p_chamber_Pa <= 0.0 or m_dot_ox_kg_s <= 0.0 or m_dot_fuel_kg_s <= 0.0:
+        raise ValueError("Pressures and mass flows must be strictly positive")
+    if burn_time_s <= 0.0:
+        raise ValueError("Burn time must be strictly positive")
+
+    dp_inj = dp_injector_ratio * p_chamber_Pa
+    dp_valves = 3.0e5
+    p_inlet = 3.0e5
+
+    p_dis_ox = p_chamber_Pa + dp_inj + dp_valves
+    p_dis_fuel = p_chamber_Pa + dp_inj + (dp_regen_bar * 1.0e5) + dp_valves
+
+    power_ox = pump_power(m_dot_ox_kg_s, p_dis_ox - p_inlet, rho_ox_kg_m3, pump_eff_ox)
+    power_fuel = pump_power(m_dot_fuel_kg_s, p_dis_fuel - p_inlet, rho_fuel_kg_m3, pump_eff_fuel)
+    power_mech_total = power_ox + power_fuel
+
+    # Combined drivetrain efficiency (motor * inverter)
+    eta_drive = motor_efficiency * inverter_efficiency
+    power_electrical_total_W = power_mech_total / eta_drive
+
+    # Battery capacity requirement in Watt-hours
+    energy_required_Wh = (power_electrical_total_W * burn_time_s) / 3600.0
+    usable_energy_density = battery_energy_density_Wh_kg * battery_dod
+    battery_mass_kg = energy_required_Wh / usable_energy_density
+
+    # Dual BLDC electric motors mass
+    motors_mass_kg = (power_mech_total / 1000.0) / motor_power_density_kW_kg
+
+    return {
+        "cycle_type": "electric_pump",
+        "p_pump_ox_bar": p_dis_ox / 1.0e5,
+        "p_pump_fuel_bar": p_dis_fuel / 1.0e5,
+        "power_pump_ox_kW": power_ox / 1.0e3,
+        "power_pump_fuel_kW": power_fuel / 1.0e3,
+        "total_pump_power_kW": power_mech_total / 1.0e3,
+        "power_electrical_kW": power_electrical_total_W / 1.0e3,
+        "battery_energy_kWh": energy_required_Wh / 1000.0,
+        "battery_mass_kg": battery_mass_kg,
+        "motors_mass_kg": motors_mass_kg,
+        "total_electric_feed_mass_kg": battery_mass_kg + motors_mass_kg,
+        "net_isp_vac_s": main_isp_vac_s,
+        "isp_penalty_s": 0.0,
+        "cycle_feasible": True,
+        "provenance": CITATIONS["electric_pump_cycle"],
+    }
+
+
 # --------------------------------------------------------------------------
 # 3. High-Level Facade: EngineCycleDesign & EngineCycleResult
 # --------------------------------------------------------------------------
@@ -579,6 +687,8 @@ class EngineCycleResult:
             return f"Staged Combustion Balance: {CITATIONS['staged_combustion_balance']}"
         elif "ffsc" in p_lower or "full_flow" in p_lower:
             return f"Full-Flow Staged Combustion: {CITATIONS['ffsc_balance']}"
+        elif "electric" in p_lower or "battery" in p_lower:
+            return f"Electric Feed System: {CITATIONS['electric_pump_cycle']}"
         return f"Cycle Power Balance: {CITATIONS['pump_hydraulics']}"
 
 
@@ -738,5 +848,33 @@ class EngineCycleDesign:
                 provenance={"balance": CITATIONS["pressure_fed_pressurant"]},
             )
 
+        elif self.cycle_type in ["electric_pump", "electric", "battery", "bldc"]:
+            res = size_electric_pump_cycle(
+                p_chamber_Pa=self.p_chamber_Pa,
+                m_dot_ox_kg_s=self.m_dot_ox_kg_s,
+                m_dot_fuel_kg_s=self.m_dot_fuel_kg_s,
+                rho_ox_kg_m3=self.rho_ox_kg_m3,
+                rho_fuel_kg_m3=self.rho_fuel_kg_m3,
+                main_isp_vac_s=self.main_isp_vac_s,
+                burn_time_s=self.kwargs.get("burn_time_s", 160.0),
+                battery_energy_density_Wh_kg=self.kwargs.get("battery_energy_density_Wh_kg", 250.0),
+            )
+            return EngineCycleResult(
+                cycle_type="electric_pump",
+                p_chamber_bar=self.p_chamber_Pa / 1.0e5,
+                m_dot_ox_kg_s=self.m_dot_ox_kg_s,
+                m_dot_fuel_kg_s=self.m_dot_fuel_kg_s,
+                m_dot_total_kg_s=m_tot,
+                power_pump_ox_kW=res["power_pump_ox_kW"],
+                power_pump_fuel_kW=res["power_pump_fuel_kW"],
+                total_pump_power_kW=res["total_pump_power_kW"],
+                net_isp_vac_s=self.main_isp_vac_s,
+                isp_penalty_s=0.0,
+                cycle_feasible=True,
+                details=res,
+                provenance={"balance": CITATIONS["electric_pump_cycle"]},
+            )
+
         else:
-            raise ValueError(f"Unknown cycle type: '{self.cycle_type}'. Supported: gas_generator, expander, staged_combustion_ox, staged_combustion_fuel, full_flow_staged, pressure_fed")
+            raise ValueError(f"Unknown cycle type: '{self.cycle_type}'. Supported: gas_generator, expander, staged_combustion_ox, staged_combustion_fuel, full_flow_staged, pressure_fed, electric_pump")
+

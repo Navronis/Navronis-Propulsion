@@ -143,6 +143,7 @@ from kryptonis.propulsion_equations.cycle import (
     size_expander_cycle,
     size_staged_combustion_cycle,
     size_full_flow_staged_combustion_cycle,
+    size_electric_pump_cycle,
     EngineCycleDesign,
     EngineCycleResult,
 )
@@ -158,7 +159,24 @@ from kryptonis.propulsion_equations.system import (
     EngineSystemResult,
 )
 
-__version__ = "0.5.0"
+from kryptonis.propulsion_equations.engine_deck import (
+    EngineReferenceDeck,
+    ENGINE_DECKS,
+    LIST_ENGINES,
+    get_engine_reference,
+    MetricComparison,
+    BenchmarkResult,
+    EngineBenchmark,
+    benchmark_all_engines,
+)
+
+from kryptonis.propulsion_equations.throttle import (
+    ThrottlePoint,
+    ThrottleAnalysisResult,
+    ThrottlingAnalysis,
+)
+
+__version__ = "0.6.0"
 __all__ = [
     # Units & result containers
     "Result", "Status", "EvidenceLevel", "Verification", "Validation", "Assumption",
@@ -205,9 +223,14 @@ __all__ = [
     "pump_npsh_required", "pump_impeller_tip_speed", "turbine_power",
     "size_pressure_fed_cycle", "size_gas_generator_cycle", "size_expander_cycle",
     "size_staged_combustion_cycle", "size_full_flow_staged_combustion_cycle",
-    "EngineCycleDesign", "EngineCycleResult",
+    "size_electric_pump_cycle", "EngineCycleDesign", "EngineCycleResult",
     # Day 5: Ascent Trajectory & Mission Performance API
     "transonic_drag_coefficient", "TrajectorySimulation", "TrajectoryResult",
     # Day 5: Unified Master Engine Architecture API
     "EngineSystem", "EngineSystemResult",
+    # Day 6: Flight Engine Reference Benchmark Decks API
+    "EngineReferenceDeck", "ENGINE_DECKS", "LIST_ENGINES", "get_engine_reference",
+    "MetricComparison", "BenchmarkResult", "EngineBenchmark", "benchmark_all_engines",
+    # Day 6: Engine Throttling & Off-Design Dynamics API
+    "ThrottlePoint", "ThrottleAnalysisResult", "ThrottlingAnalysis",
 ]

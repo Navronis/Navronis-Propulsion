@@ -75,16 +75,16 @@ def export_json(
             "\n"
             "pts = [(x, r) for x, r in data['profile_points_mm']]\n"
             "\n"
-            "# Create 2D wire from profile points\n"
-            "wire = cq.Workplane('XZ').polyline(pts)\n"
-            "\n"
-            "# Close the profile along centreline and revolve\n"
-            "x_start, x_end = pts[0][0], pts[-1][0]\n"
-            "wire = wire.lineTo(x_end, 0).lineTo(x_start, 0).close()\n"
+            "# Build hollow shell polygon (wall thickness tw = 3.0 mm)\n"
+            "tw = 3.0\n"
+            "pts_inner = [(x, r) for x, r in data['profile_points_mm']]\n"
+            "pts_outer = [(x, r + tw) for x, r in reversed(pts_inner)]\n"
+            "hollow_wire = pts_inner + pts_outer\n"
+            "wire = cq.Workplane('XZ').polyline(hollow_wire).close()\n"
             "solid = wire.revolve(360, (0, 0, 0), (1, 0, 0))\n"
             "\n"
-            "cq.exporters.export(solid, 'chamber.step')\n"
-            "print('Exported STEP file')\n"
+            "cq.exporters.export(solid, 'chamber_hollow.step')\n"
+            "print('Exported hollow 3D STEP file')\n"
         ),
     }
 
@@ -174,11 +174,13 @@ def export_cadquery_script(
     profile: "ChamberProfile",
     path: str,
     step_output: str = "chamber.step",
+    wall_thickness_mm: float = 3.0,
+    hollow: bool = True,
 ) -> str:
     """Export a ready-to-run CadQuery Python script that generates a STEP solid.
 
-    The script is SELF-CONTAINED: it embeds the profile points directly,
-    so the user only needs CadQuery installed to run it.
+    By default, generates a HOLLOW thrust chamber pressure vessel shell
+    with realistic metal wall thickness (open injector face and open nozzle exit).
 
     Parameters
     ----------
@@ -188,6 +190,11 @@ def export_cadquery_script(
         Output .py file path.
     step_output
         Filename for the generated STEP file.
+    wall_thickness_mm
+        Wall thickness in mm (default 3.0 mm).
+    hollow
+        If True (default), builds a hollow chamber with wall thickness.
+        If False, revolves a solid plug of the interior gas volume.
 
     Returns
     -------
@@ -197,10 +204,34 @@ def export_cadquery_script(
     pts = profile.points_mm()
     pts_repr = repr(pts)
 
+    if hollow:
+        body_code = [
+            f'wall_thickness_mm = {wall_thickness_mm}',
+            '',
+            '# Build hollow shell polygon (inner contour forward + outer contour reversed)',
+            'pts_inner = [(x, r) for x, r in profile_points]',
+            'pts_outer = [(x, r + wall_thickness_mm) for x, r in reversed(profile_points)]',
+            'hollow_polygon = pts_inner + pts_outer',
+            '',
+            'wire = cq.Workplane("XZ").polyline(hollow_polygon).close()',
+            '',
+            '# Revolve 360 deg around X-axis to create the HOLLOW axisymmetric solid',
+            'solid = wire.revolve(360, (0, 0, 0), (1, 0, 0))',
+        ]
+    else:
+        body_code = [
+            '# Build solid gas core plug',
+            'pts_2d = [(x, r) for x, r in profile_points]',
+            'x_start = pts_2d[0][0]',
+            'x_end = pts_2d[-1][0]',
+            'wire = cq.Workplane("XZ").polyline(pts_2d).lineTo(x_end, 0.0).lineTo(x_start, 0.0).close()',
+            'solid = wire.revolve(360, (0, 0, 0), (1, 0, 0))',
+        ]
+
     lines = [
         '"""',
         'Auto-generated CadQuery script from Kryptonis Propulsion Equations.',
-        'Run this to generate a STEP file of the thrust chamber + nozzle.',
+        'Run this to generate a 3D STEP solid of the rocket thrust chamber.',
         '',
         'Requirements: pip install cadquery',
         '"""',
@@ -209,28 +240,18 @@ def export_cadquery_script(
         '# Inner wall profile points (x_mm, r_mm) from injector face to nozzle exit',
         'profile_points = ' + pts_repr,
         '',
-        '# Build the 2D half-profile',
-        'pts_2d = [(x, r) for x, r in profile_points]',
+    ] + body_code + [
         '',
-        '# Close along centreline: nozzle exit -> down to axis -> back to injector face',
-        'x_start = pts_2d[0][0]',
-        'x_end = pts_2d[-1][0]',
-        '',
-        'wire = (',
-        '    cq.Workplane("XZ")',
-        '    .polyline(pts_2d)',
-        '    .lineTo(x_end, 0.0)',
-        '    .lineTo(x_start, 0.0)',
-        '    .close()',
-        ')',
-        '',
-        '# Revolve 360 deg around the X axis to create the axisymmetric solid',
-        'solid = wire.revolve(360, (0, 0, 0), (1, 0, 0))',
-        '',
-        '# Export STEP file',
+        '# Export STEP and STL files',
         f'cq.exporters.export(solid, "{step_output}")',
-        f'print("Exported: {step_output}")',
-        'print(f"  Total points: {len(profile_points)}")',
+        f'stl_output = "{step_output}".rsplit(".", 1)[0] + ".stl"',
+        'try:',
+        '    cq.exporters.export(solid, stl_output)',
+        '    print(f"Exported STL: {stl_output}")',
+        'except Exception:',
+        '    pass',
+        f'print("Exported STEP: {step_output}")',
+        f'print(f"  Total points: {{len(profile_points)}} | Hollow: {hollow}")',
         '',
     ]
     script = "\n".join(lines) + "\n"
