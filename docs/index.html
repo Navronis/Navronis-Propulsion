@@ -999,15 +999,15 @@
           <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; background: rgba(15,23,42,0.6); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);">
             <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
               <span style="color: #94a3b8; font-weight: 700; font-size: 11px; letter-spacing: 0.5px;">CAD MODEL:</span>
-              <button class="btn-sub-cad active" id="btn-src-opencascade" onclick="setCadModelSource('opencascade')">🛠️ OpenCASCADE STEP Solid</button>
-              <button class="btn-sub-cad" id="btn-src-parametric" onclick="setCadModelSource('parametric')">⚡ Live Parametric CAD</button>
+              <button class="btn-sub-cad" id="btn-src-opencascade" onclick="setCadModelSource('opencascade')">🛠️ OpenCASCADE STEP Solid</button>
+              <button class="btn-sub-cad active" id="btn-src-parametric" onclick="setCadModelSource('parametric')">⚡ Live Parametric CAD</button>
               <button class="btn-sub-cad" id="btn-src-upload" onclick="document.getElementById('cad-file-input').click()">📂 Open Local .STL / .STEP</button>
               <input type="file" id="cad-file-input" style="display:none;" accept=".stl,.step,.stp" onchange="handleCadFileUpload(event)">
             </div>
             <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
               <span style="color: #94a3b8; font-weight: 700; font-size: 11px; letter-spacing: 0.5px;">VIEW PRESETS:</span>
               <button class="btn-sub-cad active" id="btn-cam-iso" onclick="setCadViewPreset('iso')">◱ ISO</button>
-              <button class="btn-sub-cad" id="btn-cam-front" onclick="setCadViewPreset('front')">◰ AXIAL (FRONT)</button>
+              <button class="btn-sub-cad" id="btn-cam-front" onclick="setCadViewPreset('front')">◰ AXIAL (THRUST)</button>
               <button class="btn-sub-cad" id="btn-cam-top" onclick="setCadViewPreset('top')">◲ TOP</button>
               <button class="btn-sub-cad" id="btn-cam-throat" onclick="setCadViewPreset('throat')">🔍 THROAT DETAIL</button>
             </div>
@@ -2056,7 +2056,8 @@
     // =========================================================================
     let currentCadView = '3d';
     let cutawayPhi = 1.5 * Math.PI; // 90 deg quarter cutaway default
-    let activeCadModelSource = 'opencascade'; // 'opencascade' | 'parametric' | 'custom'
+    let activeCadModelSource = 'parametric'; // 'parametric' (default live dynamic sizing) | 'opencascade' | 'custom'
+    let openCascadeCachedEdges = null;
     let cadShadingMode = 'edges'; // 'edges' | 'metal' | 'wire'
     let showDatumGrid = true;
     let currentPlotMode = 'all';
@@ -2151,21 +2152,26 @@
       camTarget.set(0, 0, 0);
 
       if (preset === 'iso') {
+        camTarget.set(0, 0, 0);
         camTheta = 0.785;
         camPhi = 1.15;
         camDist = 0.82;
       } else if (preset === 'front') {
-        camTheta = 0.0;
+        // True axial view along +X thrust axis looking into nozzle exit and throat
+        camTarget.set(0, 0, 0);
+        camTheta = Math.PI / 2;
         camPhi = Math.PI / 2;
-        camDist = 0.82;
+        camDist = 0.85;
       } else if (preset === 'top') {
+        camTarget.set(0, 0, 0);
         camTheta = 0.0;
         camPhi = 0.02;
         camDist = 0.82;
       } else if (preset === 'throat') {
+        camTarget.set(0, 0, 0);
         camTheta = 0.55;
         camPhi = 1.25;
-        camDist = 0.32;
+        camDist = 0.35;
       }
       updateCamera();
     }
@@ -2322,7 +2328,8 @@
 
       canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
-      canvas.addEventListener('mousemove', (e) => {
+      // Bind mousemove to window so orbit/pan continues smoothly outside canvas bounds
+      window.addEventListener('mousemove', (e) => {
         if (!isDragging && !isPanning) return;
         const dx = e.clientX - prevMousePos.x;
         const dy = e.clientY - prevMousePos.y;
@@ -2341,7 +2348,10 @@
 
       canvas.addEventListener('wheel', (e) => {
         e.preventDefault();
-        camDist = Math.max(0.05, Math.min(2.5, camDist * (1.0 + e.deltaY * 0.0012)));
+        // Safe exponential zoom: immune to negative inversions or 0.05m sticky wall trap
+        const zoomDelta = Math.sign(e.deltaY) * Math.min(Math.abs(e.deltaY), 120);
+        const zoomFactor = Math.exp(zoomDelta * 0.0015);
+        camDist = Math.max(0.08, Math.min(3.5, camDist * zoomFactor));
         updateCamera();
       }, { passive: false });
 
@@ -2518,14 +2528,16 @@
           modelPivot.add(ocMesh);
 
           if (cadShadingMode === 'edges') {
-            const edges = new THREE.EdgesGeometry(ocGeom, 32);
+            if (!openCascadeCachedEdges) {
+              openCascadeCachedEdges = new THREE.EdgesGeometry(ocGeom, 32);
+            }
             const edgeMat = new THREE.LineBasicMaterial({
               color: 0x0f172a,
               linewidth: 1.2,
               clippingPlanes: activePlanes,
               clipIntersection: clipIntersection
             });
-            const edgeLine = new THREE.LineSegments(edges, edgeMat);
+            const edgeLine = new THREE.LineSegments(openCascadeCachedEdges, edgeMat);
             edgeLine.position.sub(center);
             modelPivot.add(edgeLine);
           }
@@ -2576,21 +2588,32 @@
         }
 
         const nNoz = 44;
-        const thetaN = 30.0 * Math.PI / 180.0;
-        const thetaE = (geom.theta_e || 8.0) * Math.PI / 180.0;
-        const m1 = Math.tan(thetaN), m2 = Math.tan(thetaE);
-        const P0x = 0.0, P0r = Rt;
-        const P2x = Lnoz, P2r = Re;
-        let P1x = (Re - Rt - m2 * Lnoz) / (m1 - m2 || 0.001);
-        if (P1x <= 0 || P1x >= Lnoz) P1x = 0.35 * Lnoz;
-        const P1r = m1 * P1x + Rt;
+        if (geom.nozType === 'conical') {
+          // 15° Conical divergence contour
+          for (let i = 1; i <= nNoz; i++) {
+            const u = i / nNoz;
+            const xVal = u * Lnoz;
+            const rVal = Rt + (Re - Rt) * u;
+            innerPts.push({ x: xThroat + xVal, r: rVal });
+          }
+        } else {
+          // True Rao 80% parabolic bell contour
+          const thetaN = 30.0 * Math.PI / 180.0;
+          const thetaE = (geom.theta_e || 8.0) * Math.PI / 180.0;
+          const m1 = Math.tan(thetaN), m2 = Math.tan(thetaE);
+          const P0x = 0.0, P0r = Rt;
+          const P2x = Lnoz, P2r = Re;
+          let P1x = (Re - Rt - m2 * Lnoz) / (m1 - m2 || 0.001);
+          if (P1x <= 0 || P1x >= Lnoz) P1x = 0.35 * Lnoz;
+          const P1r = m1 * P1x + Rt;
 
-        for (let i = 1; i <= nNoz; i++) {
-          const t = i / nNoz;
-          const inv = 1.0 - t;
-          const bx = inv * inv * P0x + 2.0 * inv * t * P1x + t * t * P2x;
-          const br = inv * inv * P0r + 2.0 * inv * t * P1r + t * t * P2r;
-          innerPts.push({ x: xThroat + bx, r: br });
+          for (let i = 1; i <= nNoz; i++) {
+            const t = i / nNoz;
+            const inv = 1.0 - t;
+            const bx = inv * inv * P0x + 2.0 * inv * t * P1x + t * t * P2x;
+            const br = inv * inv * P0r + 2.0 * inv * t * P1r + t * t * P2r;
+            innerPts.push({ x: xThroat + bx, r: br });
+          }
         }
 
         // Clean Aerospace Uniform Solid Shell on Outer Wall (Matching OpenCASCADE STEP)
@@ -2609,19 +2632,39 @@
         const engineMesh = new THREE.Mesh(latheGeom, pbrMat);
         engineGroup.add(engineMesh);
 
-        // Section Cut Capping Faces
-        if (cutawayPhi < 1.99 * Math.PI) {
-          const shape = new THREE.Shape();
-          shape.moveTo(solidWire[0].x, solidWire[0].y);
-          for (let i = 1; i < solidWire.length; i++) shape.lineTo(solidWire[i].x, solidWire[i].y);
-          shape.closePath();
-          const capGeom = new THREE.ShapeGeometry(shape);
-          const cap1 = new THREE.Mesh(capGeom, sectionCapMat);
-          cap1.rotation.y = 0;
-          engineGroup.add(cap1);
-          const cap2 = new THREE.Mesh(capGeom, sectionCapMat);
-          cap2.rotation.y = cutawayPhi;
-          engineGroup.add(cap2);
+        // Section Cut Capping Faces (Mathematically aligned to lathe revolution boundaries)
+        if (cutawayPhi < 1.99 * Math.PI && window.THREE.ShapeUtils) {
+          try {
+            const faces = THREE.ShapeUtils.triangulateShape(solidWire, []);
+            // Cap 1 at phi = 0
+            const pos1 = [];
+            faces.forEach(f => {
+              f.forEach(idx => {
+                pos1.push(0, solidWire[idx].y, solidWire[idx].x);
+              });
+            });
+            const capGeom1 = new THREE.BufferGeometry();
+            capGeom1.setAttribute('position', new THREE.Float32BufferAttribute(pos1, 3));
+            capGeom1.computeVertexNormals();
+            const cap1 = new THREE.Mesh(capGeom1, sectionCapMat);
+            engineGroup.add(cap1);
+
+            // Cap 2 at phi = cutawayPhi
+            const pos2 = [];
+            faces.forEach(f => {
+              for (let i = f.length - 1; i >= 0; i--) {
+                const idx = f[i];
+                pos2.push(solidWire[idx].x * Math.sin(cutawayPhi), solidWire[idx].y, solidWire[idx].x * Math.cos(cutawayPhi));
+              }
+            });
+            const capGeom2 = new THREE.BufferGeometry();
+            capGeom2.setAttribute('position', new THREE.Float32BufferAttribute(pos2, 3));
+            capGeom2.computeVertexNormals();
+            const cap2 = new THREE.Mesh(capGeom2, sectionCapMat);
+            engineGroup.add(cap2);
+          } catch (eCap) {
+            console.warn('Error constructing section cut caps:', eCap);
+          }
         }
 
         if (cadShadingMode === 'edges') {
