@@ -247,6 +247,8 @@ class BenchmarkResult:
     mean_absolute_error_percent: float
     max_error_percent: float
     passed: bool
+    validation_state: str = 'VALIDATED_AGAINST_PUBLISHED_DATA'
+    evidence_source: str = 'PRIMARY_LITERATURE'
 
     def summary_table(self) -> str:
         lines = [
@@ -270,6 +272,8 @@ class BenchmarkResult:
     def to_dict(self) -> Dict[str, Any]:
         return {
             "engine_name": self.engine_name,
+            "validation_state": self.validation_state,
+            "evidence_source": self.evidence_source,
             "mean_absolute_error_percent": round(self.mean_absolute_error_percent, 2),
             "max_error_percent": round(self.max_error_percent, 2),
             "passed": self.passed,

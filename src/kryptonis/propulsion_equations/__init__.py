@@ -170,13 +170,40 @@ from kryptonis.propulsion_equations.engine_deck import (
     benchmark_all_engines,
 )
 
+
+from kryptonis.propulsion_equations.truth import (
+    SourceAuthority,
+    ValidationState,
+    EvidenceRecord,
+    LITERATURE_CATALOG,
+    UnitDimension,
+    UnitDimensionError,
+    UnknownUnitError,
+    UnitSafety,
+    EngineeringValue,
+    DesignRequirements,
+    OperatingConditions,
+    MaterialSpec,
+    PhysicsInputs,
+    GeometrySpec,
+    SolverConfig,
+    CADArtifact,
+    ComputationNode,
+    DependencyCycleError,
+    DependencyDAG,
+    RecomputeReport,
+    DesignRevision,
+    DigitalThread,
+    build_propulsion_dag,
+)
+
 from kryptonis.propulsion_equations.throttle import (
     ThrottlePoint,
     ThrottleAnalysisResult,
     ThrottlingAnalysis,
 )
 
-__version__ = "0.6.0"
+__version__ = "0.7.0"
 __all__ = [
     # Units & result containers
     "Result", "Status", "EvidenceLevel", "Verification", "Validation", "Assumption",
@@ -233,4 +260,11 @@ __all__ = [
     "MetricComparison", "BenchmarkResult", "EngineBenchmark", "benchmark_all_engines",
     # Day 6: Engine Throttling & Off-Design Dynamics API
     "ThrottlePoint", "ThrottleAnalysisResult", "ThrottlingAnalysis",
+    # Day 7: Truth Layer, Digital Thread & Recompute Graph API
+    "SourceAuthority", "ValidationState", "EvidenceRecord", "LITERATURE_CATALOG",
+    "UnitDimension", "UnitDimensionError", "UnknownUnitError", "UnitSafety",
+    "EngineeringValue", "DesignRequirements", "OperatingConditions", "MaterialSpec",
+    "PhysicsInputs", "GeometrySpec", "SolverConfig", "CADArtifact",
+    "ComputationNode", "DependencyCycleError", "DependencyDAG", "RecomputeReport",
+    "DesignRevision", "DigitalThread", "build_propulsion_dag",
 ]
