@@ -1022,10 +1022,15 @@
               <button class="btn-sub-cad" id="btn-shade-metal" onclick="setCadShadingMode('metal')">✨ PBR Metal</button>
               <button class="btn-sub-cad" id="btn-shade-wire" onclick="setCadShadingMode('wire')">📐 Wireframe</button>
               <span style="color: #334155; margin: 0 4px;">|</span>
-              <span style="color: #94a3b8; font-weight: 700; font-size: 11px; letter-spacing: 0.5px;">SECTION CUT:</span>
-              <button class="btn-sub-cad active" id="btn-cut-90" onclick="setCutaway(1.5 * Math.PI, this)">90° Quarter Cut</button>
-              <button class="btn-sub-cad" id="btn-cut-180" onclick="setCutaway(Math.PI, this)">180° Half Cut</button>
-              <button class="btn-sub-cad" id="btn-cut-360" onclick="setCutaway(2.0 * Math.PI, this)">360° Solid Vessel</button>
+              <span style="color: #94a3b8; font-weight: 700; font-size: 11px; letter-spacing: 0.5px;">VIEW MODE:</span>
+              <button class="btn-sub-cad active" id="btn-cut-360" onclick="setCutaway(2.0 * Math.PI, this)">🌐 360° Solid Vessel (Default)</button>
+              <button class="btn-sub-cad" id="btn-cut-90" onclick="setCutaway(1.5 * Math.PI, this)">✂️ 90° Quarter Section</button>
+              <button class="btn-sub-cad" id="btn-cut-180" onclick="setCutaway(Math.PI, this)">✂️ 180° Half Section</button>
+              <span style="color: #334155; margin: 0 4px;">|</span>
+              <span style="color: #94a3b8; font-weight: 700; font-size: 11px; letter-spacing: 0.5px;">ALLOY:</span>
+              <button class="btn-sub-cad active" id="btn-alloy-cucrzr" onclick="setCadAlloyOverride('cucrzr', this)">🪙 GRCop-42 Copper</button>
+              <button class="btn-sub-cad" id="btn-alloy-inconel" onclick="setCadAlloyOverride('inconel', this)">⚙️ Inconel-718</button>
+              <button class="btn-sub-cad" id="btn-alloy-steel" onclick="setCadAlloyOverride('steel', this)">🚀 316L Stainless</button>
             </div>
             <div style="display: flex; gap: 6px; align-items: center; font-family: var(--font-mono); font-size: 11px; color: #64748b;">
               <button class="btn-sub-cad active" id="btn-toggle-grid" onclick="toggleDatumGrid(this)">Grid: ON</button>
@@ -1035,8 +1040,20 @@
         </div>
 
         <!-- Mode 1: 3D CAD Orbit WebGL Viewport -->
-        <div id="view-3d-wrapper" style="position: relative; width: 100%; height: 430px; background: radial-gradient(circle at 50% 50%, #0d1527 0%, #040711 100%); border-radius: 10px; border: 1px solid rgba(56, 189, 248, 0.25); overflow: hidden; cursor: grab;">
+        <div id="view-3d-wrapper" style="position: relative; width: 100%; height: 440px; background: radial-gradient(circle at 50% 45%, #1e293b 0%, #090e1a 100%); border-radius: 10px; border: 1px solid rgba(56, 189, 248, 0.35); overflow: hidden; cursor: grab;">
           <canvas id="canvas-3d-cad" style="width: 100%; height: 100%; display: block;"></canvas>
+
+          <!-- Live CAD Parameters & Computed Dimensions Banner -->
+          <div id="cad-live-drivers-ribbon" style="position: absolute; top: 10px; left: 12px; right: 12px; background: rgba(15,23,42,0.85); border: 1px solid rgba(56,189,248,0.25); border-radius: 6px; padding: 6px 12px; pointer-events: none; font-family: var(--font-mono); font-size: 11px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; z-index: 5;">
+            <div>
+              <span style="color: #38bdf8; font-weight: 700;">⚡ CAD DESIGN INPUTS:</span>
+              <span id="ribbon-drivers" style="color: #e2e8f0;">Thrust: 30 kN | Pc: 120 bar | ε: 30.0 | L*: 1.0 m</span>
+            </div>
+            <div>
+              <span style="color: #22c55e; font-weight: 700;">↳ COMPUTED SOLID:</span>
+              <span id="ribbon-dims" style="color: #f8fafc;">Dt: ⌀42.6 mm | Dc: ⌀102.3 mm | De: ⌀233.6 mm | L_tot: 521.0 mm</span>
+            </div>
+          </div>
           
           <!-- SolidWorks / NX Style 3D Orientation Triad (Bottom-Left) -->
           <div style="position: absolute; bottom: 12px; left: 14px; background: rgba(3,7,18,0.85); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 8px 12px; pointer-events: none; text-align: left; font-family: var(--font-mono); font-size: 11px; line-height: 1.4;">
@@ -2102,8 +2119,9 @@
     // Aerospace CAD Engineering Viewer Suite (SolidWorks / Siemens NX Standard)
     // =========================================================================
     let currentCadView = '3d';
-    let cutawayPhi = 1.5 * Math.PI; // 90 deg quarter cutaway default
+    let cutawayPhi = 2.0 * Math.PI; // 360 deg solid vessel default (90° / 180° cuts optional)
     let activeCadModelSource = 'parametric'; // 'parametric' (default live dynamic sizing) | 'opencascade' | 'custom'
+    let activeAlloyOverride = 'cucrzr'; // 'cucrzr' | 'inconel' | 'steel'
     let openCascadeCachedEdges = null;
     let cadShadingMode = 'edges'; // 'edges' | 'metal' | 'wire'
     let showDatumGrid = true;
@@ -2456,6 +2474,15 @@
       if (latestEngineGeometry) updateThree3dModel(latestEngineGeometry);
     }
 
+    function setCadAlloyOverride(alloy, btn) {
+      activeAlloyOverride = alloy;
+      ['cucrzr', 'inconel', 'steel'].forEach(a => {
+        const b = document.getElementById('btn-alloy-' + a);
+        if (b) b.classList.toggle('active', a === alloy);
+      });
+      if (latestEngineGeometry) updateThree3dModel(latestEngineGeometry);
+    }
+
     function setCutaway(angle, btn) {
       cutawayPhi = angle;
       document.querySelectorAll('#controls-3d .btn-sub-cad').forEach(b => {
@@ -2604,8 +2631,8 @@
         threeRenderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
         threeRenderer.setSize(width, height);
         threeRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        threeRenderer.toneMapping = THREE.ACESFilmicToneMapping;
-        threeRenderer.toneMappingExposure = 1.15;
+        threeRenderer.toneMapping = THREE.LinearToneMapping;
+        threeRenderer.toneMappingExposure = 1.0;
         threeRenderer.localClippingEnabled = true;
       } catch (err) {
         console.warn("Could not create WebGLRenderer:", err);
@@ -2614,21 +2641,25 @@
         return;
       }
 
-      // Neutral Aerospace Studio 3-Point Lighting
-      const ambientLight = new THREE.AmbientLight(0xffffff, 0.70);
-      threeScene.add(ambientLight);
+      // Neutral Aerospace CAD Studio 5-Point Balanced Lighting (No dark voids, true material hues)
+      const hemiLight = new THREE.HemisphereLight(0xffffff, 0x334155, 0.95);
+      threeScene.add(hemiLight);
 
-      const keyLight = new THREE.DirectionalLight(0xffffff, 1.35);
-      keyLight.position.set(2.5, 4.0, 3.0);
+      const keyLight = new THREE.DirectionalLight(0xffffff, 1.30);
+      keyLight.position.set(3.0, 4.0, 3.5);
       threeScene.add(keyLight);
 
-      const fillLight = new THREE.DirectionalLight(0xe2e8f0, 0.85);
-      fillLight.position.set(-3.0, -1.5, -2.5);
+      const fillLight = new THREE.DirectionalLight(0xbae6fd, 0.85);
+      fillLight.position.set(-3.5, 1.5, -2.5);
       threeScene.add(fillLight);
 
-      const rimLight = new THREE.DirectionalLight(0xf8fafc, 0.65);
-      rimLight.position.set(0.0, 3.5, -3.5);
+      const rimLight = new THREE.DirectionalLight(0xffedd5, 0.70);
+      rimLight.position.set(0.0, -3.0, -3.0);
       threeScene.add(rimLight);
+
+      const topLight = new THREE.DirectionalLight(0xffffff, 0.50);
+      topLight.position.set(0.0, 5.0, 0.0);
+      threeScene.add(topLight);
 
       // Engineering Metric Ground Datum Grid
       datumGrid = new THREE.GridHelper(1.4, 28, 0x38bdf8, 0x1e293b);
@@ -2761,16 +2792,25 @@
       }
       engineGroup = new THREE.Group();
 
-      // Determine aerospace PBR alloy finish
-      let metalColor = 0xb45309; // CuCrZr copper
-      let metalness = 0.88;
-      let roughness = 0.26;
-      if (geom.mat === 'GRCop-42') {
-        metalColor = 0xa84110; metalness = 0.89; roughness = 0.25;
-      } else if (geom.mat === 'OFHC') {
-        metalColor = 0xd97736; metalness = 0.90; roughness = 0.22;
-      } else if (geom.mat === 'Inconel-718') {
-        metalColor = 0x788694; metalness = 0.93; roughness = 0.28;
+      // Determine realistic aerospace PBR alloy finish (balanced diffuse & specular)
+      let metalColor = 0xdf7a44; // Radiant GRCop-42 / CuCrZr copper
+      let metalness = 0.38;
+      let roughness = 0.32;
+
+      const alloyChoice = activeAlloyOverride || (geom.mat === 'Inconel-718' ? 'inconel' : (geom.mat === '316L' ? 'steel' : 'cucrzr'));
+      if (alloyChoice === 'inconel') {
+        metalColor = 0x94a3b8; // Aerospace Inconel-718 / Titanium alloy
+        metalness = 0.42;
+        roughness = 0.34;
+      } else if (alloyChoice === 'steel') {
+        metalColor = 0xcbd5e1; // Machined 316L Stainless Steel
+        metalness = 0.48;
+        roughness = 0.28;
+      } else {
+        // GRCop-42 / CuCrZr Aerospace High-Conductivity Copper
+        metalColor = 0xdf7a44;
+        metalness = 0.38;
+        roughness = 0.32;
       }
 
       const pbrMat = new THREE.MeshStandardMaterial({
@@ -2782,9 +2822,9 @@
       });
 
       const sectionCapMat = new THREE.MeshStandardMaterial({
-        color: 0x475569,
-        metalness: 0.80,
-        roughness: 0.35,
+        color: 0x334155, // Clean dark technical cross-section
+        metalness: 0.25,
+        roughness: 0.45,
         side: THREE.DoubleSide
       });
 
@@ -2886,7 +2926,7 @@
       }
 
       if (activeCadModelSource === 'parametric') {
-        // Generate high-precision parametric hollow solid with true aerospace features
+        // Generate authentic aerospace liquid rocket thrust chamber assembly solid CAD
         const scale = 0.001; // mm to meters
         const Rc = (geom.dc_mm / 2) * scale;
         const Rt = (geom.dt_mm / 2) * scale;
@@ -2895,8 +2935,10 @@
         const Lconv = geom.lconv_mm * scale;
         const Lnoz = geom.lnoz_mm * scale;
         const tw = Math.max((geom.tw_mm || 3.0) * scale, 0.002);
+        const hc = Math.max((geom.hc_mm || 1.8) * scale, 0.001);
         const totalL = Lcyl + Lconv + Lnoz;
 
+        // 1. Gas-Side Inner Aerodynamic Contour
         const innerPts = [];
         const nCyl = 16;
         for (let i = 0; i <= nCyl; i++) {
@@ -2913,7 +2955,6 @@
 
         const nNoz = 44;
         if (geom.nozType === 'conical') {
-          // 15° Conical divergence contour
           for (let i = 1; i <= nNoz; i++) {
             const u = i / nNoz;
             const xVal = u * Lnoz;
@@ -2921,7 +2962,7 @@
             innerPts.push({ x: xThroat + xVal, r: rVal });
           }
         } else {
-          // True Rao 80% parabolic bell contour
+          // True Rao 80% parabolic bell
           const thetaN = 30.0 * Math.PI / 180.0;
           const thetaE = (geom.theta_e || 8.0) * Math.PI / 180.0;
           const m1 = Math.tan(thetaN), m2 = Math.tan(thetaE);
@@ -2940,19 +2981,77 @@
           }
         }
 
-        // Clean Aerospace Uniform Solid Shell on Outer Wall (Matching OpenCASCADE STEP)
+        // 2. Outer Structural Shell with True Aerospace Engineering CAD Features:
+        //    - Exit Stiffener Ring Flange
+        //    - Nozzle Wall
+        //    - Coolant Inlet Manifold Torus (at throat junction)
+        //    - Regenerative Cooling Jacket Shell along chamber
+        //    - Coolant Outlet Collector Manifold Torus (near injector)
+        //    - Injector Head Bolting Flange (at x = 0)
         const outerPts = [];
-        for (let i = innerPts.length - 1; i >= 0; i--) {
+
+        // Feature A: Nozzle Exit Stiffening Lip Ring
+        const exitLipR = Re + tw * 2.2;
+        const exitLipLen = Math.min(Lnoz * 0.06, 0.014);
+        outerPts.push({ x: totalL, r: exitLipR });
+        outerPts.push({ x: totalL - exitLipLen, r: exitLipR });
+
+        // Feature B: Divergent Bell Outer Wall
+        const xThroatTurnaround = xThroat + Math.min(Lnoz * 0.08, 0.025);
+        for (let i = innerPts.length - 2; i >= 0; i--) {
           const pt = innerPts[i];
-          outerPts.push({ x: pt.x, r: pt.r + tw });
+          if (pt.x > xThroatTurnaround && pt.x < totalL - exitLipLen) {
+            outerPts.push({ x: pt.x, r: pt.r + tw });
+          }
         }
 
+        // Feature C: Toroidal Coolant Inlet Feed Manifold Ring at Throat Turnaround
+        const manifoldInletR = Rt + tw * 2.5 + hc * 2.0;
+        const rTorusInlet = Math.min(0.012, Lconv * 0.25);
+        for (let k = 0; k <= 8; k++) {
+          const ang = (k / 8) * Math.PI;
+          outerPts.push({
+            x: xThroatTurnaround - rTorusInlet * Math.cos(ang),
+            r: Rt + tw + hc + rTorusInlet * 0.75 * Math.sin(ang)
+          });
+        }
+
+        // Feature D: Convergent Outer Jacket Wall
+        for (let i = innerPts.length - 1; i >= 0; i--) {
+          const pt = innerPts[i];
+          if (pt.x > Lcyl && pt.x < (xThroatTurnaround - rTorusInlet)) {
+            outerPts.push({ x: pt.x, r: pt.r + tw + hc * 0.8 });
+          }
+        }
+
+        // Feature E: Chamber Cylindrical Regenerative Cooling Jacket Shell
+        const xManifoldOutlet = Math.max(0.020, Lcyl * 0.20);
+        outerPts.push({ x: Lcyl, r: Rc + tw + hc });
+        outerPts.push({ x: xManifoldOutlet + 0.010, r: Rc + tw + hc });
+
+        // Feature F: Toroidal Coolant Outlet Collector Manifold Ring
+        for (let k = 0; k <= 8; k++) {
+          const ang = (k / 8) * Math.PI;
+          outerPts.push({
+            x: xManifoldOutlet - 0.008 * Math.cos(ang),
+            r: Rc + tw + hc + 0.008 * Math.sin(ang)
+          });
+        }
+
+        // Feature G: Top Injector Head Mounting Flange at x = 0
+        const flangeThick = Math.min(0.015, Lcyl * 0.12);
+        const flangeR = Rc * 1.25;
+        outerPts.push({ x: flangeThick, r: Rc + tw + hc });
+        outerPts.push({ x: flangeThick, r: flangeR });
+        outerPts.push({ x: 0.0, r: flangeR });
+
+        // Construct closed solid cross-section polygon wire
         const solidWire = [];
         innerPts.forEach(p => solidWire.push(new THREE.Vector2(p.r, -p.x)));
         outerPts.forEach(p => solidWire.push(new THREE.Vector2(p.r, -p.x)));
         solidWire.push(new THREE.Vector2(innerPts[0].r, -innerPts[0].x));
 
-        const latheGeom = new THREE.LatheGeometry(solidWire, 64, 0, cutawayPhi);
+        const latheGeom = new THREE.LatheGeometry(solidWire, 72, 0, cutawayPhi);
         const engineMesh = new THREE.Mesh(latheGeom, pbrMat);
         engineGroup.add(engineMesh);
 
@@ -3005,11 +3104,12 @@
 
       threeScene.add(engineGroup);
 
-      // Update HUD Callout Overlays
+      // Update HUD Callout Overlays & Top Live Ribbon
       const hudModel = document.getElementById('hud-model-type');
       if (hudModel) hudModel.innerText = modelLabel;
       const hudLtot = document.getElementById('hud-ltot');
-      if (hudLtot) hudLtot.innerText = (geom.lcyl_mm + geom.lconv_mm + geom.lnoz_mm).toFixed(1) + ' mm';
+      const totalLenMm = (geom.lcyl_mm + geom.lconv_mm + geom.lnoz_mm).toFixed(1);
+      if (hudLtot) hudLtot.innerText = totalLenMm + ' mm';
       const hudDt = document.getElementById('hud-dt');
       if (hudDt) hudDt.innerText = '⌀' + geom.dt_mm.toFixed(1) + ' mm';
       const hudDe = document.getElementById('hud-de');
@@ -3018,6 +3118,16 @@
       if (hudTw) hudTw.innerText = (geom.tw_mm || 3.0).toFixed(1) + ' mm Uniform Shell';
       const hudTri = document.getElementById('hud-tri-count');
       if (hudTri) hudTri.innerText = Math.round(displayedTriangles).toLocaleString() + ' Polygons';
+
+      // Update Live Parameter Drivers & CAD Dimensions Ribbon
+      const ribDrivers = document.getElementById('ribbon-drivers');
+      if (ribDrivers) {
+        ribDrivers.innerText = 'Thrust: ' + (geom.f_deliv_kn ? (geom.f_deliv_kn * (geom.tau || 1)).toFixed(1) : '30.0') + ' kN | Pc: ' + geom.pc_bar.toFixed(1) + ' bar | ε: ' + (geom.eps || 30.0) + ' | L*: ' + (geom.lstar || 1.0).toFixed(1) + ' m';
+      }
+      const ribDims = document.getElementById('ribbon-dims');
+      if (ribDims) {
+        ribDims.innerText = 'Dt: ⌀' + geom.dt_mm.toFixed(1) + ' mm | Dc: ⌀' + geom.dc_mm.toFixed(1) + ' mm | De: ⌀' + geom.de_mm.toFixed(1) + ' mm | L: ' + totalLenMm + ' mm';
+      }
     }
 
     // -------------------------------------------------------------------------
