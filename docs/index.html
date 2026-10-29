@@ -592,7 +592,7 @@
       <div class="calc-grid" style="margin-bottom: 24px;">
         <div class="calc-field">
           <label>Injector Family</label>
-          <select id="inp-inj" onchange="calculateSizing()">
+          <select id="inp-inj" onchange="onInjectorChange()">
             <option value="coaxial">1. Shear Coaxial (SSME, Raptor)</option>
             <option value="swirl">2. Centrifugal Swirl (RD-180)</option>
             <option value="pintle">3. Central Pintle (Merlin 1D)</option>
@@ -1015,6 +1015,7 @@
               <button class="btn-sub-cad" id="btn-cam-front" onclick="setCadViewPreset('front')">◰ AXIAL (THRUST)</button>
               <button class="btn-sub-cad" id="btn-cam-top" onclick="setCadViewPreset('top')">◲ TOP</button>
               <button class="btn-sub-cad" id="btn-cam-throat" onclick="setCadViewPreset('throat')">🔍 THROAT DETAIL</button>
+              <button class="btn-sub-cad" id="btn-cam-inj" onclick="setCadViewPreset('inj')">◳ INJECTOR DETAIL</button>
             </div>
           </div>
 
@@ -1574,6 +1575,17 @@
   </footer>
 
   <script>
+        function onInjectorChange() {
+      // Automatically switch to 90 deg quarter section cutaway so internal elements are immediately visible
+      if (Math.abs(cutawayPhi - 2.0 * Math.PI) < 0.05) {
+        const cut90Btn = document.getElementById('btn-cut-90');
+        setCutaway(1.5 * Math.PI, cut90Btn);
+      }
+      calculateSizing(true);
+      // Focus camera onto the injector head assembly
+      setCadViewPreset('inj');
+    }
+
     function loadEnginePreset() {
       const val = document.getElementById('inp-engine-preset').value;
       const presets = {
@@ -2703,6 +2715,13 @@
         camTheta = 0.55;
         camPhi = 1.25;
         camDist = Math.max(0.25, baseDist * 0.42);
+      } else if (preset === 'inj') {
+        // Focus directly on injector face plate and elements at x = -totalL / 2
+        const injX = -totalL / 2.0;
+        camTarget.set(injX + Lcyl * 0.35, 0, 0);
+        camTheta = 0.65;
+        camPhi = 1.35;
+        camDist = Math.max(0.20, (Rc * 2.8));
       }
       updateCamera();
     }
@@ -3226,9 +3245,14 @@
         outerPts.push({ x: 0.0, r: flangeR });
 
         // =====================================================================
-        // Feature 1: True Aerospace 3D Injector Head Assembly (Day 2 Architecture)
+        // Feature 1: True Aerospace 3D Injector Head Assembly (Internal & External)
         // =====================================================================
         const injectorGroup = new THREE.Group();
+
+        // Dedicated Internal Chamber Point Light for deep cavity illumination
+        const cavityLight = new THREE.PointLight(0xfff7ed, 1.8, totalL * 2.5);
+        cavityLight.position.set(0, -Lcyl * 0.5, 0);
+        engineGroup.add(cavityLight);
 
         // Structural Injector Dome Face Plate at y = 0
         const injDomeMat = new THREE.MeshStandardMaterial({
@@ -3252,6 +3276,46 @@
             boltGeom.translate(boltR * Math.cos(ang), flangeThick * 0.5, boltR * Math.sin(ang));
             injectorGroup.add(new THREE.Mesh(boltGeom, boltMat));
           }
+        }
+
+        // External Propellant Manifolds & Domes (Distinct exterior geometry visible from outside)
+        if (injFamily === 'pintle') {
+          // Central Axial LOX Feed Dome Cylinder
+          const extLoxDome = new THREE.CylinderGeometry(Rc * 0.42, Rc * 0.42, flangeThick * 2.2, 24);
+          extLoxDome.translate(0, flangeThick * 1.4, 0);
+          injectorGroup.add(new THREE.Mesh(extLoxDome, boltMat));
+
+          // Radial Fuel Inlet Elbow Pipe
+          const fuelPipe = new THREE.CylinderGeometry(Rc * 0.16, Rc * 0.16, Rc * 0.70, 16);
+          fuelPipe.rotateZ(Math.PI / 2);
+          fuelPipe.translate(Rc * 0.85, flangeThick * 0.8, 0);
+          injectorGroup.add(new THREE.Mesh(fuelPipe, boltMat));
+        } else if (injFamily === 'coaxial') {
+          // High-Pressure Welded Hemispherical LOX Dome Cap
+          const domeCapGeom = new THREE.SphereGeometry(Rc * 0.95, 24, 16, 0, cutawayPhi, 0, Math.PI / 2);
+          domeCapGeom.translate(0, flangeThick * 0.7, 0);
+          injectorGroup.add(new THREE.Mesh(domeCapGeom, injDomeMat));
+
+          // Main LOX Inlet Duct Flange Boss
+          const oxInlet = new THREE.CylinderGeometry(Rc * 0.28, Rc * 0.28, flangeThick * 1.6, 16);
+          oxInlet.translate(0, flangeThick * 0.7 + Rc * 0.95, 0);
+          injectorGroup.add(new THREE.Mesh(oxInlet, boltMat));
+        } else if (injFamily === 'swirl') {
+          // Dual Toroidal Manifolds Encircling Injector Head
+          const torus1 = new THREE.TorusGeometry(Rc * 1.05, flangeThick * 0.45, 8, 36, cutawayPhi);
+          torus1.rotateX(Math.PI / 2);
+          torus1.translate(0, flangeThick * 0.8, 0);
+          injectorGroup.add(new THREE.Mesh(torus1, boltMat));
+
+          const torus2 = new THREE.TorusGeometry(Rc * 0.65, flangeThick * 0.35, 8, 32, cutawayPhi);
+          torus2.rotateX(Math.PI / 2);
+          torus2.translate(0, flangeThick * 1.4, 0);
+          injectorGroup.add(new THREE.Mesh(torus2, boltMat));
+        } else {
+          // Doublet Manifold Distribution Plate with Dual Angled Feed Bosses
+          const distPlate = new THREE.CylinderGeometry(Rc * 0.85, Rc * 0.85, flangeThick * 1.2, 24);
+          distPlate.translate(0, flangeThick * 0.9, 0);
+          injectorGroup.add(new THREE.Mesh(distPlate, boltMat));
         }
 
         // Distinct Injector Element Geometry by Family:
@@ -3614,6 +3678,48 @@
           <!-- Wall Sections Filled with ANSI 31 Metal Hatching -->
           <path d="${topWallPath}" fill="url(#ansi31)" stroke="#38bdf8" stroke-width="1.6" />
           <path d="${botWallPath}" fill="url(#ansi31)" stroke="#38bdf8" stroke-width="1.6" />
+
+          <!-- 2D ASME Injector Assembly (Drawn dynamically per Injector Family) -->
+          <rect x="${xFace - 12}" y="${midY - rC}" width="12" height="${rC * 2}" fill="#1e293b" stroke="#38bdf8" stroke-width="1.4" />
+          ${(function() {
+            var inj = geom.injType || 'coaxial';
+            if (inj === 'pintle') {
+              var pR = Math.max(rC * 0.22, 6);
+              var pL = Math.min((geom.lcyl_mm * 0.45) * scaleX, 55);
+              var tipL = pR * 1.4;
+              return '<rect x="' + xFace + '" y="' + (midY - pR) + '" width="' + pL + '" height="' + (pR * 2) + '" fill="#f59e0b" stroke="#d97706" stroke-width="1.2" />' +
+                     '<polygon points="' + (xFace + pL) + ',' + (midY - pR * 1.5) + ' ' + (xFace + pL + tipL) + ',' + midY + ' ' + (xFace + pL) + ',' + (midY + pR * 1.5) + '" fill="#fbbf24" stroke="#d97706" stroke-width="1.2" />' +
+                     '<text x="' + (xFace + 8) + '" y="' + (midY - pR - 6) + '" fill="#f59e0b" font-family=\'JetBrains Mono, monospace\' font-size="9" font-weight="700">CENTRAL PINTLE TIP</text>';
+            } else if (inj === 'coaxial') {
+              var postL = Math.min((geom.lcyl_mm * 0.20) * scaleX, 26);
+              var s = '';
+              for (var i = -4; i <= 4; i++) {
+                var yPos = midY + (i / 4) * (rC * 0.80);
+                s += '<rect x="' + xFace + '" y="' + (yPos - 3) + '" width="' + postL + '" height="6" fill="#e2e8f0" stroke="#0284c7" stroke-width="1" />' +
+                     '<line x1="' + xFace + '" y1="' + yPos + '" x2="' + (xFace + postL + 4) + '" y2="' + yPos + '" stroke="#38bdf8" stroke-width="1.6" />';
+              }
+              s += '<text x="' + (xFace + 8) + '" y="' + (midY - rC * 0.85) + '" fill="#38bdf8" font-family=\'JetBrains Mono, monospace\' font-size="9" font-weight="700">COAXIAL POST ARRAY (N=' + (geom.ne || 19) + ')</text>';
+              return s;
+            } else if (inj === 'swirl') {
+              var cupL = Math.min((geom.lcyl_mm * 0.16) * scaleX, 20);
+              var s = '';
+              for (var i = -3; i <= 3; i++) {
+                var yPos = midY + (i / 3) * (rC * 0.75);
+                s += '<polygon points="' + xFace + ',' + (yPos - 6) + ' ' + (xFace + cupL) + ',' + (yPos - 4) + ' ' + (xFace + cupL) + ',' + (yPos + 4) + ' ' + xFace + ',' + (yPos + 6) + '" fill="#d97706" stroke="#b45309" stroke-width="1" />';
+              }
+              s += '<text x="' + (xFace + 8) + '" y="' + (midY - rC * 0.82) + '" fill="#d97706" font-family=\'JetBrains Mono, monospace\' font-size="9" font-weight="700">SWIRL INJECTION CUPS</text>';
+              return s;
+            } else {
+              var s = '';
+              for (var i = -4; i <= 4; i++) {
+                var yPos = midY + (i / 4) * (rC * 0.8);
+                s += '<line x1="' + (xFace - 12) + '" y1="' + (yPos - 3) + '" x2="' + (xFace + 10) + '" y2="' + yPos + '" stroke="#0ea5e9" stroke-width="1.5" />' +
+                     '<line x1="' + (xFace - 12) + '" y1="' + (yPos + 3) + '" x2="' + (xFace + 10) + '" y2="' + yPos + '" stroke="#0ea5e9" stroke-width="1.5" />';
+              }
+              s += '<text x="' + (xFace + 8) + '" y="' + (midY - rC * 0.82) + '" fill="#0ea5e9" font-family=\'JetBrains Mono, monospace\' font-size="9" font-weight="700">IMPINGING DOUBLETS</text>';
+              return s;
+            }
+          })()}
 
           <!-- Cooling Channels (Regen Hydraulic Loop) -->
           <path d="${topCh}" fill="rgba(16, 185, 129, 0.25)" stroke="#10b981" stroke-dasharray="4,2" stroke-width="1.2" />
