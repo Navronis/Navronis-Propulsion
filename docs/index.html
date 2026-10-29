@@ -3248,6 +3248,7 @@
         // Feature 1: True Aerospace 3D Injector Head Assembly (Internal & External)
         // =====================================================================
         const injectorGroup = new THREE.Group();
+        const injFamily = geom.injType || 'coaxial';
 
         // Dedicated Internal Chamber Point Light for deep cavity illumination
         const cavityLight = new THREE.PointLight(0xfff7ed, 1.8, totalL * 2.5);
@@ -3319,7 +3320,6 @@
         }
 
         // Distinct Injector Element Geometry by Family:
-        const injFamily = geom.injType || 'coaxial';
         if (injFamily === 'pintle') {
           // Central Pintle Injector (Merlin 1D / Apollo LMDE / Rutherford)
           const pintleShaftR = Math.max(0.004, Rc * 0.18);
