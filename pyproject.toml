@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kryptonis-propulsion-equations"
-version = "0.7.0"
+version = "0.8.0"
 description = "Authority-controlled analytical equations for liquid rocket propulsion: combustor sizing, 4 canonical injectors, regenerative cooling, supersonic nozzles, turbomachinery power balance cycles, ascent flight trajectory, real flight engine validation decks, and off-design engine throttling dynamics."
 readme = "README.md"
 requires-python = ">=3.10"

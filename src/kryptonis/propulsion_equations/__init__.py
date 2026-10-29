@@ -171,6 +171,27 @@ from kryptonis.propulsion_equations.engine_deck import (
 )
 
 
+from kryptonis.propulsion_equations.optimization import (
+    Constraint,
+    ConstraintType,
+    DesignVariable,
+    Objective,
+    ObjectiveType,
+    OptimizationProblem,
+    OptimizationResult,
+    DAGEvaluator,
+    SLSQPOptimizer,
+    ParetoFrontierGenerator,
+    is_pareto_efficient,
+    SensitivityResult,
+    SobolSensitivityAnalyzer,
+    DistributionStats,
+    DistributionType,
+    MonteCarloToleranceSimulator,
+    ToleranceParameter,
+    UncertaintyResult,
+)
+
 from kryptonis.propulsion_equations.truth import (
     SourceAuthority,
     ValidationState,
@@ -203,7 +224,7 @@ from kryptonis.propulsion_equations.throttle import (
     ThrottlingAnalysis,
 )
 
-__version__ = "0.7.0"
+__version__ = "0.8.0"
 __all__ = [
     # Units & result containers
     "Result", "Status", "EvidenceLevel", "Verification", "Validation", "Assumption",
@@ -267,4 +288,10 @@ __all__ = [
     "PhysicsInputs", "GeometrySpec", "SolverConfig", "CADArtifact",
     "ComputationNode", "DependencyCycleError", "DependencyDAG", "RecomputeReport",
     "DesignRevision", "DigitalThread", "build_propulsion_dag",
+    # Day 8: Multidisciplinary Design Optimization & Uncertainty API
+    "Constraint", "ConstraintType", "DesignVariable", "Objective", "ObjectiveType",
+    "OptimizationProblem", "OptimizationResult", "DAGEvaluator", "SLSQPOptimizer",
+    "ParetoFrontierGenerator", "is_pareto_efficient", "SensitivityResult",
+    "SobolSensitivityAnalyzer", "DistributionStats", "DistributionType",
+    "MonteCarloToleranceSimulator", "ToleranceParameter", "UncertaintyResult",
 ]
