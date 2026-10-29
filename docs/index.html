@@ -1576,14 +1576,8 @@
 
   <script>
         function onInjectorChange() {
-      // Automatically switch to 90 deg quarter section cutaway so internal elements are immediately visible
-      if (Math.abs(cutawayPhi - 2.0 * Math.PI) < 0.05) {
-        const cut90Btn = document.getElementById('btn-cut-90');
-        setCutaway(1.5 * Math.PI, cut90Btn);
-      }
+      // Retain user-selected cutaway view (default remains 360 solid vessel)
       calculateSizing(true);
-      // Focus camera onto the injector head assembly
-      setCadViewPreset('inj');
     }
 
     function loadEnginePreset() {
@@ -2206,6 +2200,7 @@
         hc_mm: h_c_mm,
         tfin_mm: t_fin_mm,
         nch: n_ch,
+        n_elements: ne,
         mat: mat,
         injType: injType,
         nozType: nozType,
@@ -2693,6 +2688,8 @@
       const totalL = geom ? (geom.lcyl_mm + geom.lconv_mm + geom.lnoz_mm) * 0.001 : 0.52;
       const maxDiam = geom ? Math.max(geom.dc_mm, geom.de_mm) * 0.001 : 0.24;
       const baseDist = Math.max(0.65, Math.max(totalL, maxDiam) * 1.45);
+      const Lcyl = geom ? (geom.lcyl_mm * 0.001) : 0.20;
+      const Rc = geom ? (geom.dc_mm * 0.0005) : 0.06;
 
       if (preset === 'iso') {
         camTarget.set(0, 0, 0);
@@ -2861,7 +2858,7 @@
       threeScene.add(topLight);
 
       // Engineering Metric Ground Datum Grid
-      datumGrid = new THREE.GridHelper(1.4, 28, 0x38bdf8, 0x1e293b);
+      datumGrid = new THREE.GridHelper(5.0, 50, 0x38bdf8, 0x1e293b);
       datumGrid.position.y = -0.16;
       datumGrid.visible = showDatumGrid;
       threeScene.add(datumGrid);
@@ -3245,10 +3242,11 @@
         outerPts.push({ x: 0.0, r: flangeR });
 
         // =====================================================================
-        // Feature 1: True Aerospace 3D Injector Head Assembly (Internal & External)
+        // Feature 1: True Aerospace 3D Injector Head Assembly with Drilled Orifice Holes
         // =====================================================================
         const injectorGroup = new THREE.Group();
         const injFamily = geom.injType || 'coaxial';
+        const nElementsTarget = geom.n_elements || (injFamily === 'pintle' ? 1 : (injFamily === 'coaxial' ? 19 : 14));
 
         // Dedicated Internal Chamber Point Light for deep cavity illumination
         const cavityLight = new THREE.PointLight(0xfff7ed, 1.8, totalL * 2.5);
@@ -3262,9 +3260,16 @@
           roughness: 0.28,
           side: THREE.DoubleSide
         });
-        const domeGeom = new THREE.CylinderGeometry(Rc * 0.99, Rc * 0.99, flangeThick * 0.7, 48);
+        const domeGeom = new THREE.CylinderGeometry(Rc * 0.99, Rc * 0.99, flangeThick * 0.7, 48, 1, false, 0, cutawayPhi);
         domeGeom.translate(0, flangeThick * 0.35, 0);
         injectorGroup.add(new THREE.Mesh(domeGeom, injDomeMat));
+
+        // Injector Orifice Borehole Material (True drilled holes into faceplate)
+        const holeMat = new THREE.MeshStandardMaterial({
+          color: 0x090d16, // Dark recessed fluid borehole interior
+          roughness: 0.95,
+          metalness: 0.10
+        });
 
         // Injector Flange Perimeter Bolting Studs
         const nBolts = Math.max(8, Math.min(24, Math.round(Rc * 160)));
@@ -3330,19 +3335,45 @@
             roughness: 0.18
           });
 
-          // A. Pintle Central Feed Shaft extending along -Y axis into chamber
+          // A. Central drilled faceplate hole bore
+          const centralHole = new THREE.CylinderGeometry(pintleShaftR * 1.8, pintleShaftR * 1.8, 0.0015, 24);
+          centralHole.translate(0, -0.0005, 0);
+          injectorGroup.add(new THREE.Mesh(centralHole, holeMat));
+
+          // B. Concentric Annular Fuel Orifice Slot Ring
+          const annFuelR = pintleShaftR * 1.45;
+          const annSlot = new THREE.CylinderGeometry(annFuelR, annFuelR, 0.002, 24);
+          annSlot.translate(0, -0.001, 0);
+          injectorGroup.add(new THREE.Mesh(annSlot, holeMat));
+
+          // C. Pintle Central Feed Shaft extending along -Y axis into chamber
           const shaftGeom = new THREE.CylinderGeometry(pintleShaftR, pintleShaftR, pintleLen, 24);
           shaftGeom.translate(0, -pintleLen / 2, 0);
           injectorGroup.add(new THREE.Mesh(shaftGeom, pintleMat));
 
-          // B. Conical Deflection Pintle Tip / Mushroom Head
+          // D. Conical Deflection Pintle Tip / Mushroom Head
           const coneH = pintleShaftR * 1.35;
           const tipGeom = new THREE.ConeGeometry(pintleShaftR * 1.5, coneH, 24);
           tipGeom.rotateX(Math.PI);
           tipGeom.translate(0, -pintleLen - coneH / 2, 0);
           injectorGroup.add(new THREE.Mesh(tipGeom, pintleMat));
 
-          // C. Annular Fuel Sleeve Ring at base (x = 0)
+          // E. Radial Injection Orifice Holes/Slots around Pintle Tip
+          const nPintleHoles = 12;
+          const pintleOrifMat = new THREE.MeshStandardMaterial({ color: 0x090d16, roughness: 0.9 });
+          for (let ph = 0; ph < nPintleHoles; ph++) {
+            const pAng = (ph / nPintleHoles) * 2 * Math.PI;
+            if (pAng <= cutawayPhi || cutawayPhi >= 1.99 * Math.PI) {
+              const hR = pintleShaftR * 1.25;
+              const hGeom = new THREE.CylinderGeometry(0.0009, 0.0009, pintleShaftR * 0.6, 6);
+              hGeom.rotateZ(Math.PI / 2);
+              hGeom.rotateY(pAng);
+              hGeom.translate(hR * Math.cos(pAng), -pintleLen - coneH * 0.25, hR * Math.sin(pAng));
+              injectorGroup.add(new THREE.Mesh(hGeom, pintleOrifMat));
+            }
+          }
+
+          // F. Annular Fuel Sleeve Ring at base (x = 0)
           const sleeveGeom = new THREE.CylinderGeometry(pintleShaftR * 1.5, pintleShaftR * 1.5, flangeThick * 0.5, 24);
           sleeveGeom.translate(0, -flangeThick * 0.25, 0);
           injectorGroup.add(new THREE.Mesh(sleeveGeom, boltMat));
@@ -3360,37 +3391,69 @@
             roughness: 0.25
           });
 
-          const elemR = Math.max(0.0028, Rc * 0.075);
-          const postH = Math.min(Lcyl * 0.20, 0.028);
+          // Calculate element distribution from nElementsTarget
+          const neTotal = Math.min(Math.max(7, nElementsTarget), 180);
+          const elemR = Math.max(0.0020, Rc * (0.07 / Math.sqrt(neTotal / 19)));
+          const postH = Math.min(Lcyl * 0.18, 0.024);
 
-          // Center Element
-          const centerOuter = new THREE.CylinderGeometry(elemR, elemR, postH, 16);
-          centerOuter.translate(0, -postH / 2, 0);
-          injectorGroup.add(new THREE.Mesh(centerOuter, elemMat));
+          // Build ring distribution
+          const ringList = [];
+          if (neTotal <= 12) {
+            ringList.push({ count: 1, radius: 0 });
+            ringList.push({ count: neTotal - 1, radius: Rc * 0.55 });
+          } else if (neTotal <= 25) {
+            ringList.push({ count: 1, radius: 0 });
+            const r1Count = Math.round((neTotal - 1) * 0.35);
+            ringList.push({ count: r1Count, radius: Rc * 0.38 });
+            ringList.push({ count: neTotal - 1 - r1Count, radius: Rc * 0.72 });
+          } else if (neTotal <= 70) {
+            ringList.push({ count: 1, radius: 0 });
+            const rem = neTotal - 1;
+            const c1 = Math.round(rem * 0.18);
+            const c2 = Math.round(rem * 0.35);
+            const c3 = rem - c1 - c2;
+            ringList.push({ count: c1, radius: Rc * 0.28 });
+            ringList.push({ count: c2, radius: Rc * 0.54 });
+            ringList.push({ count: c3, radius: Rc * 0.78 });
+          } else {
+            ringList.push({ count: 1, radius: 0 });
+            const rem = neTotal - 1;
+            const c1 = Math.round(rem * 0.12);
+            const c2 = Math.round(rem * 0.24);
+            const c3 = Math.round(rem * 0.30);
+            const c4 = rem - c1 - c2 - c3;
+            ringList.push({ count: c1, radius: Rc * 0.22 });
+            ringList.push({ count: c2, radius: Rc * 0.44 });
+            ringList.push({ count: c3, radius: Rc * 0.65 });
+            ringList.push({ count: c4, radius: Rc * 0.84 });
+          }
 
-          const centerPost = new THREE.CylinderGeometry(elemR * 0.48, elemR * 0.48, postH * 1.25, 12);
-          centerPost.translate(0, -postH * 0.625, 0);
-          injectorGroup.add(new THREE.Mesh(centerPost, oxPostMat));
-
-          // Concentric Pitch Rings
-          const ringConfigs = [
-            { count: 6, radius: Rc * 0.36 },
-            { count: 12, radius: Rc * 0.70 }
-          ];
-          ringConfigs.forEach(rg => {
+          ringList.forEach(rg => {
             for (let i = 0; i < rg.count; i++) {
-              const ang = (i / rg.count) * 2 * Math.PI;
+              const ang = rg.count === 1 ? 0 : (i / rg.count) * 2 * Math.PI;
               if (ang <= cutawayPhi || cutawayPhi >= 1.99 * Math.PI) {
                 const ex = rg.radius * Math.cos(ang);
                 const ez = rg.radius * Math.sin(ang);
 
-                const elOuter = new THREE.CylinderGeometry(elemR, elemR, postH, 14);
+                // 1. Drilled Annular Fuel Orifice Borehole in faceplate
+                const annHole = new THREE.CylinderGeometry(elemR * 1.15, elemR * 1.15, 0.0015, 12);
+                annHole.translate(ex, -0.00075, ez);
+                injectorGroup.add(new THREE.Mesh(annHole, holeMat));
+
+                // 2. Coaxial Outer Sleeve Post
+                const elOuter = new THREE.CylinderGeometry(elemR, elemR, postH, 12);
                 elOuter.translate(ex, -postH / 2, ez);
                 injectorGroup.add(new THREE.Mesh(elOuter, elemMat));
 
-                const elInner = new THREE.CylinderGeometry(elemR * 0.46, elemR * 0.46, postH * 1.2, 10);
+                // 3. Central Oxidizer Post Tube
+                const elInner = new THREE.CylinderGeometry(elemR * 0.48, elemR * 0.48, postH * 1.2, 10);
                 elInner.translate(ex, -postH * 0.6, ez);
                 injectorGroup.add(new THREE.Mesh(elInner, oxPostMat));
+
+                // 4. Central Oxidizer Borehole (dark fluid core)
+                const loxBore = new THREE.CylinderGeometry(elemR * 0.28, elemR * 0.28, postH * 1.25, 8);
+                loxBore.translate(ex, -postH * 0.625, ez);
+                injectorGroup.add(new THREE.Mesh(loxBore, holeMat));
               }
             }
           });
@@ -3402,53 +3465,88 @@
             metalness: 0.75,
             roughness: 0.25
           });
-          const swirlR = Math.max(0.0045, Rc * 0.11);
+          const neTotal = Math.min(Math.max(6, nElementsTarget), 64);
+          const swirlR = Math.max(0.0035, Rc * (0.12 / Math.sqrt(neTotal / 12)));
           const swirlH = Math.min(Lcyl * 0.16, 0.022);
 
-          const swirlPositions = [
-            { x: 0, z: 0 },
-            { x: Rc * 0.5, z: 0 },
-            { x: -Rc * 0.5, z: 0 },
-            { x: 0, z: Rc * 0.5 },
-            { x: 0, z: -Rc * 0.5 },
-            { x: Rc * 0.35, z: Rc * 0.35 },
-            { x: -Rc * 0.35, z: Rc * 0.35 },
-            { x: Rc * 0.35, z: -Rc * 0.35 },
-            { x: -Rc * 0.35, z: -Rc * 0.35 }
-          ];
+          const swirlRings = [];
+          if (neTotal <= 8) {
+            swirlRings.push({ count: 1, radius: 0 });
+            swirlRings.push({ count: neTotal - 1, radius: Rc * 0.55 });
+          } else if (neTotal <= 20) {
+            swirlRings.push({ count: 1, radius: 0 });
+            const c1 = Math.round((neTotal - 1) * 0.4);
+            swirlRings.push({ count: c1, radius: Rc * 0.40 });
+            swirlRings.push({ count: neTotal - 1 - c1, radius: Rc * 0.75 });
+          } else {
+            swirlRings.push({ count: 1, radius: 0 });
+            const rem = neTotal - 1;
+            const c1 = Math.round(rem * 0.25);
+            const c2 = Math.round(rem * 0.40);
+            const c3 = rem - c1 - c2;
+            swirlRings.push({ count: c1, radius: Rc * 0.30 });
+            swirlRings.push({ count: c2, radius: Rc * 0.56 });
+            swirlRings.push({ count: c3, radius: Rc * 0.80 });
+          }
 
-          swirlPositions.forEach(pos => {
-            const phiPos = Math.atan2(pos.z, pos.x);
-            const posAng = phiPos < 0 ? phiPos + 2 * Math.PI : phiPos;
-            if (posAng <= cutawayPhi || cutawayPhi >= 1.99 * Math.PI) {
-              const cupGeom = new THREE.CylinderGeometry(swirlR, swirlR * 0.72, swirlH, 16);
-              cupGeom.translate(pos.x, -swirlH / 2, pos.z);
-              injectorGroup.add(new THREE.Mesh(cupGeom, swirlMat));
+          swirlRings.forEach(rg => {
+            for (let i = 0; i < rg.count; i++) {
+              const ang = rg.count === 1 ? 0 : (i / rg.count) * 2 * Math.PI;
+              if (ang <= cutawayPhi || cutawayPhi >= 1.99 * Math.PI) {
+                const sx = rg.radius * Math.cos(ang);
+                const sz = rg.radius * Math.sin(ang);
+
+                // 1. Drilled Faceplate Recess Cavity Hole
+                const cupHole = new THREE.CylinderGeometry(swirlR * 1.15, swirlR * 1.15, 0.002, 14);
+                cupHole.translate(sx, -0.001, sz);
+                injectorGroup.add(new THREE.Mesh(cupHole, holeMat));
+
+                // 2. Swirl Cup Body
+                const cupGeom = new THREE.CylinderGeometry(swirlR, swirlR * 0.72, swirlH, 14);
+                cupGeom.translate(sx, -swirlH / 2, sz);
+                injectorGroup.add(new THREE.Mesh(cupGeom, swirlMat));
+
+                // 3. Central Vortex Discharge Orifice Hole
+                const dischargeHole = new THREE.CylinderGeometry(swirlR * 0.38, swirlR * 0.38, swirlH * 1.1, 10);
+                dischargeHole.translate(sx, -swirlH / 2, sz);
+                injectorGroup.add(new THREE.Mesh(dischargeHole, holeMat));
+              }
             }
           });
         }
         else {
-          // Unlike Impinging Doublet Ring Array
+          // Unlike Impinging Doublet Drilled Orifice Hole Array
           const orifMat = new THREE.MeshStandardMaterial({
-            color: 0x0284c7, // Angled Jet Orifices
+            color: 0x0284c7, // Aerospace Liquid Jet Stream
             metalness: 0.8,
             roughness: 0.2
           });
-          const nPairs = 14;
+          const nPairs = Math.min(Math.max(6, Math.round(nElementsTarget)), 36);
           for (let i = 0; i < nPairs; i++) {
             const ang = (i / nPairs) * 2 * Math.PI;
             if (ang <= cutawayPhi || cutawayPhi >= 1.99 * Math.PI) {
-              const oxX = (Rc * 0.50) * Math.cos(ang);
-              const oxZ = (Rc * 0.50) * Math.sin(ang);
-              const fuelX = (Rc * 0.68) * Math.cos(ang);
-              const fuelZ = (Rc * 0.68) * Math.sin(ang);
+              const oxX = (Rc * 0.48) * Math.cos(ang);
+              const oxZ = (Rc * 0.48) * Math.sin(ang);
+              const fuelX = (Rc * 0.70) * Math.cos(ang);
+              const fuelZ = (Rc * 0.70) * Math.sin(ang);
 
-              const oxN = new THREE.CylinderGeometry(0.0016, 0.0016, 0.012, 8);
+              // 1. Drilled Oxidizer Orifice Hole in faceplate
+              const oxHole = new THREE.CylinderGeometry(0.0022, 0.0022, 0.002, 8);
+              oxHole.translate(oxX, -0.001, oxZ);
+              injectorGroup.add(new THREE.Mesh(oxHole, holeMat));
+
+              // 2. Drilled Fuel Orifice Hole in faceplate
+              const fuelHole = new THREE.CylinderGeometry(0.0020, 0.0020, 0.002, 8);
+              fuelHole.translate(fuelX, -0.001, fuelZ);
+              injectorGroup.add(new THREE.Mesh(fuelHole, holeMat));
+
+              // 3. Converging Liquid Jets
+              const oxN = new THREE.CylinderGeometry(0.0012, 0.0012, 0.012, 8);
               oxN.rotateZ(0.25);
               oxN.translate(oxX, -0.006, oxZ);
               injectorGroup.add(new THREE.Mesh(oxN, orifMat));
 
-              const fuelN = new THREE.CylinderGeometry(0.0014, 0.0014, 0.012, 8);
+              const fuelN = new THREE.CylinderGeometry(0.0011, 0.0011, 0.012, 8);
               fuelN.rotateZ(-0.25);
               fuelN.translate(fuelX, -0.006, fuelZ);
               injectorGroup.add(new THREE.Mesh(fuelN, orifMat));
@@ -3461,7 +3559,7 @@
         // Feature 2: 3D Regenerative Cooling Channel Ribs & Passages
         // =====================================================================
         const channelRibGroup = new THREE.Group();
-        const nRibs = Math.min(geom.nch || 80, 48);
+        const nRibs = Math.min(geom.nch || 80, 96);
         const ribMat = new THREE.MeshStandardMaterial({
           color: 0x1e293b, // Dark Milled Coolant Slot Ribs
           metalness: 0.40,
@@ -3577,8 +3675,8 @@
         const exitOuterR = (geom.de_mm * 0.5 + (geom.tw_mm || 3.0)) * 0.001;
         const maxR = Math.max(exitOuterR, (geom.dc_mm * 0.5) * 0.001);
         datumGrid.position.y = -maxR * 1.15;
-        const gridScale = Math.max(1.2, boundingDim * 1.8);
-        datumGrid.scale.set(gridScale / 1.4, 1, gridScale / 1.4);
+        // Fixed 100 mm metric reference grid (1 square = 0.10 m = 100 mm)
+        datumGrid.scale.set(1.0, 1.0, 1.0);
       }
 
       // Update HUD Callout Overlays & Top Live Ribbon
