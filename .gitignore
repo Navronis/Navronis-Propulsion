@@ -55,3 +55,7 @@ venv.bak/
 .idea/
 *.swp
 *.swo
+
+node_modules/
+.mplconfig/
+evidence_screenshots/

@@ -663,7 +663,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--delta-p-ratio", type=float, default=0.20,
-        help="Injector pressure drop ratio delta_p / Pc (default: 0.20 = 20%)",
+        help="Injector pressure drop ratio delta_p / Pc (default: 0.20 = 20%%)",
     )
     parser.add_argument(
         "--channels", type=int, default=80,

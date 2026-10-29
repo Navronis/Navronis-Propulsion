@@ -636,6 +636,7 @@
             <option value="GRCop-42">GRCop-42 (NASA 3D Print)</option>
             <option value="OFHC">OFHC Pure Copper</option>
             <option value="Inconel-718">Inconel-718 Superalloy</option>
+            <option value="316L">316L Stainless Steel</option>
           </select>
         </div>
       </div>
@@ -1587,9 +1588,9 @@
         raptor2: { thrust: 2256000, pc: 300, prop: 'LOX/CH4', eps: 34.0, cycle: 'full_flow', inj: 'coaxial', ne: 60, mat: 'GRCop-42', lstar: 1.0, nch: 160, tw: 2.5, nozType: 'bell', m0: 1200000, payload: 100000 },
         rs25: { thrust: 1859000, pc: 206.4, prop: 'LOX/LH2', eps: 77.5, cycle: 'staged_fuel', inj: 'coaxial', ne: 600, mat: 'Inconel-718', lstar: 0.95, nch: 390, tw: 3.2, nozType: 'bell', m0: 750000, payload: 27000 },
         rd180: { thrust: 1913500, pc: 266.8, prop: 'LOX/RP-1', eps: 36.87, cycle: 'staged_ox', inj: 'swirl', ne: 350, mat: 'GRCop-42', lstar: 1.1, nch: 140, tw: 2.8, nozType: 'bell', m0: 334000, payload: 18800 },
-        rl10: { thrust: 72000, pc: 42.0, prop: 'LOX/LH2', eps: 84.0, cycle: 'expander', inj: 'coaxial', ne: 90, mat: '316L', lstar: 1.5, nch: 90, tw: 2.0, nozType: 'bell', m0: 23000, payload: 5000 },
+        rl10: { thrust: 72000, pc: 42.0, prop: 'LOX/LH2', eps: 84.0, cycle: 'expander', inj: 'coaxial', ne: 90, mat: '316L', lstar: 1.5, nch: 90, tw: 2.0, nozType: 'bell', m0: 23000, payload: 5000, alt: 60000 },
         rutherford: { thrust: 24900, pc: 85.0, prop: 'LOX/RP-1', eps: 25.0, cycle: 'electric_pump', inj: 'pintle', ne: 1, mat: 'Inconel-718', lstar: 0.95, nch: 60, tw: 1.8, nozType: 'bell', m0: 12500, payload: 300 },
-        lmde: { thrust: 32000, pc: 7.1, prop: 'LOX/RP-1', eps: 47.4, cycle: 'pressure_fed', inj: 'pintle', ne: 1, mat: 'Inconel-718', lstar: 1.2, nch: 70, tw: 2.0, nozType: 'bell', m0: 15000, payload: 1500 }
+        lmde: { thrust: 32000, pc: 7.1, prop: 'LOX/RP-1', eps: 47.4, cycle: 'pressure_fed', inj: 'pintle', ne: 1, mat: 'Inconel-718', lstar: 1.2, nch: 70, tw: 2.0, nozType: 'bell', m0: 15000, payload: 1500, alt: 100000 }
       };
       if (presets[val]) {
         const p = presets[val];
@@ -1697,6 +1698,8 @@
         k_w = 380.0; e_mod = 115e9; alpha_w = 16.5e-6; yield_sy = 180e6;
       } else if (mat === 'Inconel-718') {
         k_w = 15.0; e_mod = 200e9; alpha_w = 13.0e-6; nu_w = 0.29; yield_sy = 900e6;
+      } else if (mat === '316L') {
+        k_w = 16.2; e_mod = 193e9; alpha_w = 16.0e-6; nu_w = 0.30; yield_sy = 290e6;
       }
 
       // -------------------------------------------------------------
@@ -1967,12 +1970,12 @@
       const d_star_noz = Math.max(0.0008 * l_noz_m, 0.0002);
       const bl_deficit = (2.0 * Math.PI * re_m * d_star_noz) / (Math.PI * re_m * re_m);
 
-      const cf_deliv = cf_id * lambda_noz * (1.0 - bl_deficit);
+      let cf_deliv = cf_id * lambda_noz * (1.0 - bl_deficit);
       const cf_vac_del = cf_vac * lambda_noz * (1.0 - bl_deficit);
       const cf_sl_del = cf_sl * lambda_noz * (1.0 - bl_deficit);
 
-      const f_deliv_n = cf_deliv * pc_pa * (Math.PI * dt * dt / 4.0);
-      const isp_deliv = (c_star * cf_deliv) / 9.80665;
+      let f_deliv_n = cf_deliv * pc_pa * (Math.PI * dt * dt / 4.0);
+      let isp_deliv = (c_star * cf_deliv) / 9.80665;
       const isp_vac = (c_star * cf_vac_del) / 9.80665;
 
       // Stark 2005 Separation Criteria Check
@@ -1996,6 +1999,17 @@
         sep_label = 'UNRESOLVED (Summerfield/KB Warn)';
         sep_class = 'res-val highlight';
         is_sep_flow = true;
+      }
+
+      if (is_sep_flow || cf_deliv <= 0.20) {
+        // Stark (2005) Summerfield flow separation correction:
+        // Flow detaches at Summerfield limit (p_sep = 0.375 * p_amb); pressure downstream recovers to ambient.
+        // Prevents unphysical negative thrust on vacuum nozzles evaluated at low altitude.
+        const p_sep = p_summerfield;
+        const cf_sep = cfIdeal(p_sep, p_amb_pa) * lambda_noz * (1.0 - bl_deficit);
+        cf_deliv = Math.max(cf_deliv, Math.max(cf_sep, 0.40 * cf_vac_del));
+        f_deliv_n = cf_deliv * pc_pa * (Math.PI * dt * dt / 4.0);
+        isp_deliv = (c_star * cf_deliv) / 9.80665;
       }
 
       document.getElementById('res-de').innerText = (de_m * 1000).toFixed(1) + ' mm';
@@ -2224,7 +2238,10 @@
         tau: tau,
         cr: cr
       };
-      latestEngineGeometry = engineGeom;
+      if (window.activeDesignRevision) {
+        engineGeom.revision_id = window.activeDesignRevision;
+      }
+      window.latestEngineGeometry = latestEngineGeometry = engineGeom;
 
       // Update HUD stats
       const hudMat = document.getElementById('hud-mat');
@@ -2592,7 +2609,7 @@
     }
 
     function switchCadView(mode) {
-      currentCadView = mode;
+      window.currentCadView = currentCadView = mode;
       document.getElementById('btn-view-3d').className = 'btn-cad-tab' + (mode === '3d' ? ' active' : '');
       document.getElementById('btn-view-bp').className = 'btn-cad-tab' + (mode === 'bp' ? ' active' : '');
       document.getElementById('btn-view-thermal').className = 'btn-cad-tab' + (mode === 'thermal' ? ' active' : '');
@@ -4674,8 +4691,14 @@ Evaluating analytical gradients &amp; active Kuhn-Tucker constraints...`;
       if (!latestOptimalDesign) return;
       document.getElementById('inp-pc').value = latestOptimalDesign.pc.toFixed(1);
       document.getElementById('inp-eps').value = latestOptimalDesign.eps.toFixed(1);
+      window.activeDesignRevision = latestOptimalDesign.revId;
       calculateSizing(true);
       switchCadView('3d');
+      // Toast / Ribbon notification of optimization application
+      const ribDrivers = document.getElementById('ribbon-drivers');
+      if (ribDrivers && latestOptimalDesign.revId) {
+        ribDrivers.innerHTML += ` | <span style="color:#22c55e; font-weight:700;">${latestOptimalDesign.revId}</span>`;
+      }
     }
 
     function runMonteCarloTrials(nSamples) {
