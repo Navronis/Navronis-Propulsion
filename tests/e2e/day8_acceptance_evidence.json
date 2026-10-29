@@ -1,0 +1,309 @@
+{
+  "topologyReport": {
+    "coaxial": {
+      "meshCount": 100,
+      "vertexCount": 19353,
+      "faceCount": 29756,
+      "bboxMm": {
+        "min": [
+          -326.4,
+          -53.4,
+          -121.2
+        ],
+        "max": [
+          260.5,
+          121.2,
+          121.2
+        ],
+        "dimensionsMm": [
+          586.9,
+          174.6,
+          242.4
+        ]
+      },
+      "geometryHash": "GEO-0624C416",
+      "activeInjector": "coaxial",
+      "revisionId": "REV-BASELINE"
+    },
+    "pintle": {
+      "meshCount": 64,
+      "vertexCount": 16831,
+      "faceCount": 27716,
+      "bboxMm": {
+        "min": [
+          -298,
+          -53.4,
+          -121.2
+        ],
+        "max": [
+          260.5,
+          121.2,
+          121.2
+        ],
+        "dimensionsMm": [
+          558.5,
+          174.6,
+          242.4
+        ]
+      },
+      "geometryHash": "GEO-0045EF46",
+      "activeInjector": "pintle",
+      "revisionId": "REV-BASELINE"
+    },
+    "swirl": {
+      "meshCount": 85,
+      "vertexCount": 18882,
+      "faceCount": 29692,
+      "bboxMm": {
+        "min": [
+          -286.7,
+          -54.8,
+          -121.2
+        ],
+        "max": [
+          260.5,
+          121.2,
+          121.2
+        ],
+        "dimensionsMm": [
+          547.2,
+          176,
+          242.4
+        ]
+      },
+      "geometryHash": "GEO-20824E9F",
+      "activeInjector": "swirl",
+      "revisionId": "REV-BASELINE"
+    },
+    "impinging": {
+      "meshCount": 91,
+      "vertexCount": 17840,
+      "faceCount": 28308,
+      "bboxMm": {
+        "min": [
+          -283,
+          -53.4,
+          -121.2
+        ],
+        "max": [
+          260.5,
+          121.2,
+          121.2
+        ],
+        "dimensionsMm": [
+          543.5,
+          174.6,
+          242.4
+        ]
+      },
+      "geometryHash": "GEO-0E217FE8",
+      "activeInjector": "impinging",
+      "revisionId": "REV-BASELINE"
+    }
+  },
+  "presetScales": {
+    "rutherford": {
+      "meshCount": 89,
+      "vertexCount": 16561,
+      "faceCount": 27560,
+      "bboxMm": {
+        "min": [
+          -291.8,
+          -119.8,
+          -119.8
+        ],
+        "max": [
+          254.3,
+          119.8,
+          119.8
+        ],
+        "dimensionsMm": [
+          546.1,
+          239.6,
+          239.6
+        ]
+      },
+      "geometryHash": "GEO-059F6990",
+      "activeInjector": "pintle",
+      "revisionId": "REV-BASELINE"
+    },
+    "merlin1d": {
+      "meshCount": 141,
+      "vertexCount": 18476,
+      "faceCount": 28936,
+      "bboxMm": {
+        "min": [
+          -833.7,
+          -508.4,
+          -508.4
+        ],
+        "max": [
+          790.5,
+          508.4,
+          508.4
+        ],
+        "dimensionsMm": [
+          1624.1,
+          1016.7,
+          1016.7
+        ]
+      },
+      "geometryHash": "GEO-22061C05",
+      "activeInjector": "pintle",
+      "revisionId": "REV-BASELINE"
+    },
+    "raptor2": {
+      "meshCount": 364,
+      "vertexCount": 33735,
+      "faceCount": 39064,
+      "bboxMm": {
+        "min": [
+          -1261.9,
+          -687.5,
+          -687.5
+        ],
+        "max": [
+          1065.2,
+          687.5,
+          687.5
+        ],
+        "dimensionsMm": [
+          2327.1,
+          1374.9,
+          1374.9
+        ]
+      },
+      "geometryHash": "GEO-336C0B88",
+      "activeInjector": "coaxial",
+      "revisionId": "REV-BASELINE"
+    },
+    "rs25": {
+      "meshCount": 844,
+      "vertexCount": 65895,
+      "faceCount": 59224,
+      "bboxMm": {
+        "min": [
+          -1919,
+          -1133.8,
+          -1133.8
+        ],
+        "max": [
+          1708.4,
+          1133.8,
+          1133.8
+        ],
+        "dimensionsMm": [
+          3627.4,
+          2267.7,
+          2267.7
+        ]
+      },
+      "geometryHash": "GEO-072CCF95",
+      "activeInjector": "coaxial",
+      "revisionId": "REV-BASELINE"
+    },
+    "rd180": {
+      "meshCount": 316,
+      "vertexCount": 33120,
+      "faceCount": 38992,
+      "bboxMm": {
+        "min": [
+          -1131.5,
+          -699.7,
+          -699.7
+        ],
+        "max": [
+          1105.2,
+          699.7,
+          699.7
+        ],
+        "dimensionsMm": [
+          2236.7,
+          1399.4,
+          1399.4
+        ]
+      },
+      "geometryHash": "GEO-13616F08",
+      "activeInjector": "swirl",
+      "revisionId": "REV-BASELINE"
+    },
+    "rl10": {
+      "meshCount": 470,
+      "vertexCount": 41215,
+      "faceCount": 43776,
+      "bboxMm": {
+        "min": [
+          -1050.4,
+          -516.2,
+          -516.2
+        ],
+        "max": [
+          934,
+          516.2,
+          516.2
+        ],
+        "dimensionsMm": [
+          1984.5,
+          1032.4,
+          1032.4
+        ]
+      },
+      "geometryHash": "GEO-117F9BDB",
+      "activeInjector": "coaxial",
+      "revisionId": "REV-BASELINE"
+    },
+    "lmde": {
+      "meshCount": 115,
+      "vertexCount": 17925,
+      "faceCount": 28768,
+      "bboxMm": {
+        "min": [
+          -1075.3,
+          -627.8,
+          -627.8
+        ],
+        "max": [
+          1037.8,
+          627.8,
+          627.8
+        ],
+        "dimensionsMm": [
+          2113.2,
+          1255.5,
+          1255.5
+        ]
+      },
+      "geometryHash": "GEO-0A4369E4",
+      "activeInjector": "pintle",
+      "revisionId": "REV-BASELINE"
+    }
+  },
+  "optimization": {
+    "baseline": {
+      "pc": 120,
+      "eps": 30,
+      "dt_mm": 42.64872372458461,
+      "de_mm": 233.59668032760737,
+      "ltot_mm": 520.9618711869798,
+      "geometryHash": "GEO-193F79F4",
+      "revisionId": "REV-BASELINE"
+    },
+    "converged": {
+      "pc": 135.91518226191505,
+      "eps": 15,
+      "revId": "REV-SLSQP-7E21C6",
+      "mass": 10.322310146969171
+    },
+    "applied": {
+      "pc": 135.9,
+      "eps": 15,
+      "dt_mm": 40.07623679019188,
+      "de_mm": 155.21459766707812,
+      "ltot_mm": 401.4288915765009,
+      "geometryHash": "GEO-1F9367CC",
+      "revisionId": "REV-SLSQP-7E21C6"
+    }
+  },
+  "uncaughtErrors": [],
+  "consoleLogsCount": 1
+}

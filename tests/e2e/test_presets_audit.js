@@ -46,11 +46,20 @@ async function getPresetStats(page) {
 (async () => {
   const browser = await chromium.launch({
     executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-    headless: true
+    headless: true,
+    args: ['--no-sandbox', '--disable-web-security']
   });
   const page = await browser.newPage();
-  const filePath = 'file:///' + path.resolve(__dirname, 'docs/index.html').replace(/\\/g, '/');
-  await page.goto(filePath, { waitUntil: 'load' });
+  await page.route('**/*', route => {
+    const url = route.request().url();
+    if (url.startsWith('http:') || url.startsWith('https:')) {
+      route.abort();
+    } else {
+      route.continue();
+    }
+  });
+  const filePath = 'file:///' + path.resolve(__dirname, '../../docs/index.html').replace(/\\/g, '/');
+  await page.goto(filePath, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(600);
 
   const presets = ['merlin1d', 'raptor2', 'rs25', 'rd180', 'rl10', 'rutherford', 'lmde'];
