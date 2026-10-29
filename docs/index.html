@@ -1577,13 +1577,13 @@
     function loadEnginePreset() {
       const val = document.getElementById('inp-engine-preset').value;
       const presets = {
-        merlin1d: { thrust: 845000, pc: 97, prop: 'LOX/RP-1', eps: 16.0, cycle: 'gas_generator', inj: 'pintle', ne: 1, m0: 549000, payload: 22800 },
-        raptor2: { thrust: 2256000, pc: 300, prop: 'LOX/CH4', eps: 34.0, cycle: 'full_flow', inj: 'coaxial', ne: 60, m0: 1200000, payload: 100000 },
-        rs25: { thrust: 1859000, pc: 206.4, prop: 'LOX/LH2', eps: 77.5, cycle: 'staged_fuel', inj: 'coaxial', ne: 600, m0: 750000, payload: 27000 },
-        rd180: { thrust: 1913500, pc: 266.8, prop: 'LOX/RP-1', eps: 36.87, cycle: 'staged_ox', inj: 'swirl', ne: 350, m0: 334000, payload: 18800 },
-        rl10: { thrust: 72000, pc: 42.0, prop: 'LOX/LH2', eps: 84.0, cycle: 'expander', inj: 'coaxial', ne: 90, m0: 23000, payload: 5000 },
-        rutherford: { thrust: 24900, pc: 85.0, prop: 'LOX/RP-1', eps: 25.0, cycle: 'electric_pump', inj: 'pintle', ne: 1, m0: 12500, payload: 300 },
-        lmde: { thrust: 32000, pc: 7.1, prop: 'LOX/RP-1', eps: 47.4, cycle: 'pressure_fed', inj: 'pintle', ne: 1, m0: 15000, payload: 1500 }
+        merlin1d: { thrust: 845000, pc: 97, prop: 'LOX/RP-1', eps: 16.0, cycle: 'gas_generator', inj: 'pintle', ne: 1, mat: 'GRCop-42', lstar: 1.0, nch: 110, tw: 2.2, nozType: 'bell', m0: 549000, payload: 22800 },
+        raptor2: { thrust: 2256000, pc: 300, prop: 'LOX/CH4', eps: 34.0, cycle: 'full_flow', inj: 'coaxial', ne: 60, mat: 'GRCop-42', lstar: 1.0, nch: 160, tw: 2.5, nozType: 'bell', m0: 1200000, payload: 100000 },
+        rs25: { thrust: 1859000, pc: 206.4, prop: 'LOX/LH2', eps: 77.5, cycle: 'staged_fuel', inj: 'coaxial', ne: 600, mat: 'Inconel-718', lstar: 0.95, nch: 390, tw: 3.2, nozType: 'bell', m0: 750000, payload: 27000 },
+        rd180: { thrust: 1913500, pc: 266.8, prop: 'LOX/RP-1', eps: 36.87, cycle: 'staged_ox', inj: 'swirl', ne: 350, mat: 'GRCop-42', lstar: 1.1, nch: 140, tw: 2.8, nozType: 'bell', m0: 334000, payload: 18800 },
+        rl10: { thrust: 72000, pc: 42.0, prop: 'LOX/LH2', eps: 84.0, cycle: 'expander', inj: 'coaxial', ne: 90, mat: '316L', lstar: 1.5, nch: 90, tw: 2.0, nozType: 'bell', m0: 23000, payload: 5000 },
+        rutherford: { thrust: 24900, pc: 85.0, prop: 'LOX/RP-1', eps: 25.0, cycle: 'electric_pump', inj: 'pintle', ne: 1, mat: 'Inconel-718', lstar: 0.95, nch: 60, tw: 1.8, nozType: 'bell', m0: 12500, payload: 300 },
+        lmde: { thrust: 32000, pc: 7.1, prop: 'LOX/RP-1', eps: 47.4, cycle: 'pressure_fed', inj: 'pintle', ne: 1, mat: 'Inconel-718', lstar: 1.2, nch: 70, tw: 2.0, nozType: 'bell', m0: 15000, payload: 1500 }
       };
       if (presets[val]) {
         const p = presets[val];
@@ -1594,9 +1594,16 @@
         document.getElementById('inp-cycle').value = p.cycle;
         document.getElementById('inp-inj').value = p.inj;
         document.getElementById('inp-elements').value = p.ne;
+        if (p.mat && document.getElementById('inp-mat')) document.getElementById('inp-mat').value = p.mat;
+        if (p.lstar && document.getElementById('inp-lstar')) document.getElementById('inp-lstar').value = p.lstar;
+        if (p.nch && document.getElementById('inp-channels')) document.getElementById('inp-channels').value = p.nch;
+        if (p.tw && document.getElementById('inp-wall-t')) document.getElementById('inp-wall-t').value = p.tw;
+        if (p.nozType && document.getElementById('inp-nozzle-type')) document.getElementById('inp-nozzle-type').value = p.nozType;
         if (p.m0) document.getElementById('inp-m0').value = p.m0;
         if (p.payload) document.getElementById('inp-mpayload').value = p.payload;
-        calculateSizing();
+        // Switch to Live Parametric CAD to dynamically build and display this specific engine
+        setCadModelSource('parametric');
+        calculateSizing(true);
       }
     }
 
@@ -1692,14 +1699,17 @@
       const cf = 1.75;
       const at = thrust / (pc_pa * cf);
       const dt = Math.sqrt(4 * at / Math.PI);
-      const cr = 1.25 + 8.0 * Math.pow(dt, -0.6);
+      // Canonical Humble empirical correlation (NASA SP-125 / Humble et al. p. 74)
+      // dt_cm is throat diameter in CENTIMETERS (matches src/kryptonis/propulsion_equations/chamber.py:384)
+      const dt_cm = dt * 100.0;
+      const cr = Math.min(Math.max(1.25 + 8.0 * Math.pow(dt_cm, -0.6), 1.6), 5.5);
       const dc = dt * Math.sqrt(cr);
       const ac = at * cr;
       const vc = lstar * at;
       const conv_rad = theta_deg * Math.PI / 180.0;
       const lconv = (dc - dt) / (2.0 * Math.tan(conv_rad));
       const vconv = (Math.PI / (24.0 * Math.tan(conv_rad))) * (Math.pow(dc, 3) - Math.pow(dt, 3));
-      const lcyl = Math.max((vc - vconv) / ac, 0.04);
+      const lcyl = Math.max((vc - vconv) / ac, 0.05);
       const lc = lcyl + lconv;
 
       const r_spec = 8314.46 / (mw * 1000);
@@ -2201,7 +2211,11 @@
         isp_deliv: isp_deliv,
         twg_c: t_wg - 273.15,
         twc_c: t_wc - 273.15,
-        q_peak_mw: q_approx > 55 ? 32.5 : q_approx
+        q_peak_mw: q_approx > 55 ? 32.5 : q_approx,
+        eps: eps_geom,
+        lstar: lstar,
+        tau: tau,
+        cr: cr
       };
       latestEngineGeometry = engineGeom;
 
@@ -2663,27 +2677,32 @@
       if (!camTarget) camTarget = new THREE.Vector3(0, 0, 0);
       camTarget.set(0, 0, 0);
 
+      const geom = latestEngineGeometry;
+      const totalL = geom ? (geom.lcyl_mm + geom.lconv_mm + geom.lnoz_mm) * 0.001 : 0.52;
+      const maxDiam = geom ? Math.max(geom.dc_mm, geom.de_mm) * 0.001 : 0.24;
+      const baseDist = Math.max(0.65, Math.max(totalL, maxDiam) * 1.45);
+
       if (preset === 'iso') {
         camTarget.set(0, 0, 0);
         camTheta = 0.785;
         camPhi = 1.15;
-        camDist = 0.82;
+        camDist = baseDist;
       } else if (preset === 'front') {
         // True axial view along +X thrust axis looking into nozzle exit and throat
         camTarget.set(0, 0, 0);
         camTheta = Math.PI / 2;
         camPhi = Math.PI / 2;
-        camDist = 0.85;
+        camDist = baseDist * 1.05;
       } else if (preset === 'top') {
         camTarget.set(0, 0, 0);
         camTheta = 0.0;
         camPhi = 0.02;
-        camDist = 0.82;
+        camDist = baseDist;
       } else if (preset === 'throat') {
         camTarget.set(0, 0, 0);
         camTheta = 0.55;
         camPhi = 1.25;
-        camDist = 0.35;
+        camDist = Math.max(0.25, baseDist * 0.42);
       }
       updateCamera();
     }
@@ -2867,7 +2886,7 @@
         // Safe exponential zoom: immune to negative inversions or 0.05m sticky wall trap
         const zoomDelta = Math.sign(e.deltaY) * Math.min(Math.abs(e.deltaY), 120);
         const zoomFactor = Math.exp(zoomDelta * 0.0015);
-        camDist = Math.max(0.08, Math.min(3.5, camDist * zoomFactor));
+        camDist = Math.max(0.08, Math.min(18.0, camDist * zoomFactor));
         updateCamera();
       }, { passive: false });
 
@@ -2892,7 +2911,7 @@
         } else if (e.touches.length === 2) {
           const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
           const factor = touchStartDist / Math.max(dist, 1);
-          camDist = Math.max(0.05, Math.min(2.5, camDist * factor));
+          camDist = Math.max(0.05, Math.min(18.0, camDist * factor));
           touchStartDist = dist;
           updateCamera();
         }
@@ -3264,6 +3283,24 @@
       }
 
       threeScene.add(engineGroup);
+
+      // Dynamically auto-frame camera to fit the physical size of this engine
+      const autoL = (geom.lcyl_mm + geom.lconv_mm + geom.lnoz_mm) * 0.001;
+      const autoMaxDiam = Math.max(geom.dc_mm, geom.de_mm) * 0.001;
+      const boundingDim = Math.max(autoL, autoMaxDiam);
+      camDist = Math.max(0.65, boundingDim * 1.45);
+      if (!camTarget) camTarget = new THREE.Vector3(0, 0, 0);
+      camTarget.set(0, 0, 0);
+      updateCamera();
+
+      // Dynamic ground datum grid scaling and placement beneath engine
+      if (datumGrid) {
+        const exitOuterR = (geom.de_mm * 0.5 + (geom.tw_mm || 3.0)) * 0.001;
+        const maxR = Math.max(exitOuterR, (geom.dc_mm * 0.5) * 0.001);
+        datumGrid.position.y = -maxR * 1.15;
+        const gridScale = Math.max(1.2, boundingDim * 1.8);
+        datumGrid.scale.set(gridScale / 1.4, 1, gridScale / 1.4);
+      }
 
       // Update HUD Callout Overlays & Top Live Ribbon
       const hudModel = document.getElementById('hud-model-type');
