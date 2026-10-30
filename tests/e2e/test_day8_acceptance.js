@@ -6,7 +6,13 @@ const fs = require('fs');
   const browser = await chromium.launch({
     executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
     headless: true,
-    args: ['--no-sandbox', '--disable-web-security']
+    args: [
+      '--no-sandbox',
+      '--disable-web-security',
+      '--disable-gpu',
+      '--disable-dev-shm-usage',
+      '--headless=new'
+    ]
   });
   const page = await browser.newPage({ viewport: { width: 1440, height: 950 } });
 
@@ -25,7 +31,7 @@ const fs = require('fs');
   });
 
   const indexPath = 'file:///' + path.resolve(__dirname, '../../docs/index.html').replace(/\\/g, '/');
-  await page.goto(indexPath, { waitUntil: 'domcontentloaded', timeout: 15000 });
+  await page.goto(indexPath, { waitUntil: 'domcontentloaded', timeout: 30000 });
   await page.waitForTimeout(1000);
 
   const outDir = path.resolve(__dirname, '../../evidence_screenshots');

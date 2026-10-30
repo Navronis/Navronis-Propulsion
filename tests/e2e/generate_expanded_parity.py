@@ -280,11 +280,29 @@ def simulate_engine(cfg):
     a_eff = w_c_m + 2.0 * eta_fin * h_c_m
     h_c_eff = h_c_base * (a_eff / (w_c_m + t_fin_m))
 
-    t_aw = tc * (1.0 + 0.85 * ((gamma - 1.0) / 2.0)) / (1.0 + (gamma - 1.0) / 2.0)
-    h_g = 0.026 * math.pow(pc_pa, 0.8) / math.pow(dt, 0.2) * 0.025
-    r_total = (1.0 / h_g) + (t_w_m / k_w) + (1.0 / h_c_eff)
-    q_flux = (t_aw - t_bulk_in) / r_total
-    twg = t_aw - (q_flux / h_g)
+    pr_gas = 4.0 * gamma / (9.0 * gamma - 5.0)
+    mu_gas = 1.184e-7 * math.sqrt(mw * 1000.0) * math.pow(tc, 0.6)
+    r_rec = math.pow(pr_gas, 1.0 / 3.0)
+    t_aw = tc * (1.0 + r_rec * 0.5 * (gamma - 1.0)) / (1.0 + 0.5 * (gamma - 1.0))
+    cp_gas = (8314.46 / (mw * 1000.0)) * (gamma / (gamma - 1.0))
+
+    twg = 800.0
+    h_g = 20000.0
+    q_flux = 40e6
+    for _ in range(25):
+        rec = 1.0 + 0.5 * (gamma - 1.0)
+        ratio = twg / tc
+        sigma = math.pow(0.5 * ratio * rec + 0.5, -0.68) * math.pow(rec, -0.12)
+        bartz_term = (math.pow(mu_gas, 0.2) * cp_gas / math.pow(pr_gas, 0.6)) * (1.0 / math.pow(c_star, 0.8)) * math.pow(1.0 / 1.5, 0.1) * sigma
+        h_g = (0.026 / math.pow(dt, 0.2)) * math.pow(pc_pa, 0.8) * bartz_term
+
+        r_total = (1.0 / h_g) + (t_w_m / k_w) + (1.0 / h_c_eff)
+        q_flux = (t_aw - t_bulk_in) / r_total
+        twg_next = t_aw - (q_flux / h_g)
+        if abs(twg_next - twg) < 1e-4:
+            break
+        twg = 0.5 * (twg + twg_next)
+
     twc = t_bulk_in + (q_flux / h_c_eff)
 
     l_ch = lc * 1.15

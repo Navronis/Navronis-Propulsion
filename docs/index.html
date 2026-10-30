@@ -1864,12 +1864,29 @@
       const a_eff = w_c_m + 2.0 * eta_fin * h_c_m;
       const h_c_eff = h_c_base * (a_eff / (w_c_m + t_fin_m));
 
-      const t_aw = tc * (1.0 + 0.85 * ((gamma - 1.0) / 2.0)) / (1.0 + (gamma - 1.0) / 2.0);
-      const h_g = 0.026 * Math.pow(pc_pa, 0.8) / Math.pow(dt, 0.2) * 0.025;
+      // Bartz gas-side convective coefficient (NASA SP-125 / Bartz 1957)
+      const pr_gas = 4.0 * gamma / (9.0 * gamma - 5.0);
+      const mu_gas = 1.184e-7 * Math.sqrt(mw * 1000.0) * Math.pow(tc, 0.6);
+      const r_rec = Math.pow(pr_gas, 1.0 / 3.0);
+      const t_aw = tc * (1.0 + r_rec * 0.5 * (gamma - 1.0)) / (1.0 + 0.5 * (gamma - 1.0));
+      const cp_gas = (8314.46 / (mw * 1000.0)) * (gamma / (gamma - 1.0));
 
-      const r_total = (1.0 / h_g) + (t_w_m / k_w) + (1.0 / h_c_eff);
-      const q_flux = (t_aw - t_bulk_in) / r_total;
-      const t_wg = t_aw - (q_flux / h_g);
+      let t_wg = 800.0;
+      let h_g = 20000.0;
+      let q_flux = 40e6;
+      for (let iter = 0; iter < 25; iter++) {
+        const rec = 1.0 + 0.5 * (gamma - 1.0);
+        const ratio = t_wg / tc;
+        const sigma = Math.pow(0.5 * ratio * rec + 0.5, -0.68) * Math.pow(rec, -0.12);
+        const bartz_term = (Math.pow(mu_gas, 0.2) * cp_gas / Math.pow(pr_gas, 0.6)) * (1.0 / Math.pow(c_star, 0.8)) * Math.pow(1.0 / 1.5, 0.1) * sigma;
+        h_g = (0.026 / Math.pow(dt, 0.2)) * Math.pow(pc_pa, 0.8) * bartz_term;
+
+        const r_total = (1.0 / h_g) + (t_w_m / k_w) + (1.0 / h_c_eff);
+        q_flux = (t_aw - t_bulk_in) / r_total;
+        const t_wg_next = t_aw - (q_flux / h_g);
+        if (Math.abs(t_wg_next - t_wg) < 1e-4) break;
+        t_wg = 0.5 * (t_wg + t_wg_next);
+      }
       const t_wc = t_bulk_in + (q_flux / h_c_eff);
 
       const l_ch = lc * 1.15;
@@ -4422,16 +4439,70 @@ print("Exported 3D STEP model: navronis_hollow_thrust_chamber.step (Hollow insid
       const vol_metal = Math.PI * ((dc + dt + de) / 3.0) * totL * tw_m;
       const dry_mass = (vol_metal * rho_metal * 1.35) + (eps_geom * 0.12) + (thrust_N * 0.00015);
 
-      // Bartz convective throat thermal prediction
-      const hg = 0.026 * Math.pow(pc_pa, 0.8) / Math.pow(dt, 0.2) * 0.025;
-      const kw = (mat_str === 'Inconel-718' ? 15.0 : (mat_str === '316L' ? 16.0 : 340.0));
-      const taw = tc * (1.0 + 0.85 * ((gamma - 1.0) / 2.0)) / (1.0 + (gamma - 1.0) / 2.0);
-      const r_total = (1.0 / hg) + (tw_m / kw) + (1.0 / 28000.0);
-      const q_flux = (taw - 120.0) / r_total;
-      const twg = taw - (q_flux / hg);
+      // Authoritative coolant jacket hydraulics & Bartz conjugate heat transfer
+      let kw = 340.0;
+      if (mat_str === 'Inconel-718') kw = 15.0;
+      else if (mat_str === '316L') kw = 16.2;
+      else if (mat_str === 'OFHC') kw = 380.0;
 
-      // Coolant jacket hydraulics
-      const dp_coolant = (pc_bar * 0.125) + (totL * 7.5);
+      let of_val = 3.5, cp_f = 3500.0, k_f = 0.18, mu_f = 1.1e-4, t_bulk_in = 120.0, rho_f = 422.0, isp_nom = 295.0;
+      if (prop_str === 'LOX/RP-1') { of_val = 2.6; cp_f = 2050.0; k_f = 0.12; mu_f = 1.5e-3; t_bulk_in = 290.0; rho_f = 810.0; isp_nom = 285.0; }
+      else if (prop_str === 'LOX/LH2') { of_val = 6.0; cp_f = 14200.0; k_f = 0.19; mu_f = 1.4e-5; t_bulk_in = 40.0; rho_f = 71.0; isp_nom = 390.0; }
+      else if (prop_str === 'N2O4/MMH') { of_val = 1.65; cp_f = 2900.0; k_f = 0.17; mu_f = 8.5e-4; t_bulk_in = 295.0; rho_f = 880.0; isp_nom = 315.0; }
+
+      const n_ch = 80;
+      const t_fin_m = 0.0008;
+      const h_c_m = 0.0018;
+      const circ_throat = Math.PI * dt;
+      const w_c_m = Math.max((circ_throat - n_ch * t_fin_m) / n_ch, 0.0002);
+      const a_flow_ch = w_c_m * h_c_m;
+      const d_h = 4.0 * a_flow_ch / (2.0 * (w_c_m + h_c_m));
+
+      const mdot = thrust_N / (isp_nom * 9.80665);
+      const mdot_f = mdot / (1.0 + of_val);
+      const v_coolant = (mdot_f / n_ch) / (rho_f * a_flow_ch);
+      const re_c = (rho_f * v_coolant * d_h) / mu_f;
+      const pr_c = (cp_f * mu_f) / k_f;
+
+      const f_filon = Math.pow(0.790 * Math.log(Math.max(re_c, 2300.0)) - 1.64, -2);
+      const nu_gniel = ((f_filon / 8.0) * (re_c - 1000.0) * pr_c) / (1.0 + 12.7 * Math.sqrt(f_filon / 8.0) * (Math.pow(pr_c, 2.0 / 3.0) - 1.0));
+      const h_c_base = Math.max(nu_gniel * k_f / d_h, 1000.0);
+
+      const m_fin = Math.sqrt(2.0 * h_c_base / (kw * t_fin_m));
+      const eta_fin = Math.tanh(m_fin * h_c_m) / (m_fin * h_c_m);
+      const a_eff = w_c_m + 2.0 * eta_fin * h_c_m;
+      const h_c_eff = h_c_base * (a_eff / (w_c_m + t_fin_m));
+
+      const pr_gas = 4.0 * gamma / (9.0 * gamma - 5.0);
+      const mw_gas = (prop_str === 'LOX/RP-1' ? 0.0235 : (prop_str === 'LOX/LH2' ? 0.0150 : (prop_str === 'N2O4/MMH' ? 0.0215 : 0.022)));
+      const mu_gas = 1.184e-7 * Math.sqrt(mw_gas * 1000.0) * Math.pow(tc, 0.6);
+      const r_rec = Math.pow(pr_gas, 1.0 / 3.0);
+      const taw = tc * (1.0 + r_rec * 0.5 * (gamma - 1.0)) / (1.0 + 0.5 * (gamma - 1.0));
+      const cp_gas = (8314.46 / (mw_gas * 1000.0)) * (gamma / (gamma - 1.0));
+
+      let twg = 800.0;
+      let hg = 20000.0;
+      let q_flux = 40e6;
+      for (let iter = 0; iter < 25; iter++) {
+        const rec = 1.0 + 0.5 * (gamma - 1.0);
+        const ratio = twg / tc;
+        const sigma = Math.pow(0.5 * ratio * rec + 0.5, -0.68) * Math.pow(rec, -0.12);
+        const bartz_term = (Math.pow(mu_gas, 0.2) * cp_gas / Math.pow(pr_gas, 0.6)) * (1.0 / Math.pow(c_star, 0.8)) * Math.pow(1.0 / 1.5, 0.1) * sigma;
+        hg = (0.026 / Math.pow(dt, 0.2)) * Math.pow(pc_pa, 0.8) * bartz_term;
+
+        const r_total = (1.0 / hg) + (tw_m / kw) + (1.0 / h_c_eff);
+        q_flux = (taw - t_bulk_in) / r_total;
+        const twg_next = taw - (q_flux / hg);
+        if (Math.abs(twg_next - twg) < 1e-4) break;
+        twg = 0.5 * (twg + twg_next);
+      }
+      const twc = t_bulk_in + (q_flux / h_c_eff);
+
+      // Hydraulic pressure drop via Haaland friction factor
+      const inv_sqrt_f = -1.8 * Math.log10(Math.pow((15e-6 / d_h) / 3.7, 1.11) + 6.9 / Math.max(re_c, 1000.0));
+      const f_haaland = Math.pow(1.0 / inv_sqrt_f, 2);
+      const l_ch = (lcyl + lconv) * 1.15;
+      const dp_coolant = (f_haaland * (l_ch / d_h) * 0.5 * rho_f * Math.pow(v_coolant, 2)) / 1e5;
 
       return {
         thrust_N: thrust_N,
@@ -4447,7 +4518,8 @@ print("Exported 3D STEP model: navronis_hollow_thrust_chamber.step (Hollow insid
         dry_mass: dry_mass,
         twg: twg,
         dp_coolant: dp_coolant,
-        vol_metal: vol_metal
+        vol_metal: vol_metal,
+        pe_pa: pe_pa
       };
     }
 
@@ -4697,7 +4769,10 @@ Finite Difference: Forward Difference h = 1e-5 | Hessian: BFGS Quasi-Newton Upda
       function f(v) { return evalPropulsionPoint(thrust, v[0], v[1], 1.0, prop, mat).dry_mass; }
       function g(v) {
         const pt = evalPropulsionPoint(thrust, v[0], v[1], 1.0, prop, mat);
-        return [maxTwg - pt.twg, maxDp - pt.dp_coolant];
+        const p_amb_pa = 101325.0;
+        const p_sep_summerfield = 0.375 * p_amb_pa;
+        const sep_margin_bar = (pt.pe_pa - p_sep_summerfield) / 1e5;
+        return [maxTwg - pt.twg, maxDp - pt.dp_coolant, sep_margin_bar];
       }
       function gradF(v) {
         const h = 1e-5;
@@ -4714,7 +4789,8 @@ Finite Difference: Forward Difference h = 1e-5 | Hessian: BFGS Quasi-Newton Upda
         const gP1 = g([v[0], v[1] + h]);
         return [
           [(gP0[0] - g0[0]) / h, (gP1[0] - g0[0]) / h],
-          [(gP0[1] - g0[1]) / h, (gP1[1] - g0[1]) / h]
+          [(gP0[1] - g0[1]) / h, (gP1[1] - g0[1]) / h],
+          [(gP0[2] - g0[2]) / h, (gP1[2] - g0[2]) / h]
         ];
       }
 
@@ -4729,50 +4805,49 @@ Finite Difference: Forward Difference h = 1e-5 | Hessian: BFGS Quasi-Newton Upda
         const gVec = gradF(x);
         const J = jacobianG(x);
 
-        let bestD = [0, 0];
-        let minQP = Infinity;
-
-        function isFeasibleD(candD) {
-          const cx = [x[0] + candD[0], x[1] + candD[1]];
-          if (cx[0] < bounds[0][0] - 1e-6 || cx[0] > bounds[0][1] + 1e-6) return false;
-          if (cx[1] < bounds[1][0] - 1e-6 || cx[1] > bounds[1][1] + 1e-6) return false;
-          if (gVal[0] + J[0][0] * candD[0] + J[0][1] * candD[1] < -1e-5) return false;
-          if (gVal[1] + J[1][0] * candD[0] + J[1][1] * candD[1] < -1e-5) return false;
-          return true;
-        }
-
-        function qpCost(candD) {
-          return (candD[0]*gVec[0] + candD[1]*gVec[1]) + 0.5 * (
+        // Kraft (1988) L1-relaxed active-set QP subproblem solver
+        function qpMerit(candD) {
+          const linG0 = gVal[0] + J[0][0] * candD[0] + J[0][1] * candD[1];
+          const linG1 = gVal[1] + J[1][0] * candD[0] + J[1][1] * candD[1];
+          const linG2 = gVal[2] + J[2][0] * candD[0] + J[2][1] * candD[1];
+          const viol = Math.max(0, -linG0) + Math.max(0, -linG1) + Math.max(0, -linG2);
+          const quad = (candD[0]*gVec[0] + candD[1]*gVec[1]) + 0.5 * (
             candD[0] * (B[0][0]*candD[0] + B[0][1]*candD[1]) +
             candD[1] * (B[1][0]*candD[0] + B[1][1]*candD[1])
           );
+          return quad + 50.0 * viol;
         }
 
-        const detB = B[0][0]*B[1][1] - B[0][1]*B[1][0];
-        const dUnc = [
-          -(B[1][1]*gVec[0] - B[0][1]*gVec[1]) / detB,
-          -(-B[1][0]*gVec[0] + B[0][0]*gVec[1]) / detB
+        let bestD = [0, 0];
+        let minQP = qpMerit([0, 0]);
+
+        const d1_target = bounds[1][0] - x[1];
+        const d0_low = bounds[0][0] - x[0];
+        const d0_high = bounds[0][1] - x[0];
+
+        // Evaluate candidate active boundaries (coolant dP active, Twg active, bounds)
+        const candidates = [
+          [0, 0],
+          [d0_low, d1_target],
+          [d0_high, d1_target]
         ];
-        if (isFeasibleD(dUnc)) {
-          bestD = dUnc;
-          minQP = qpCost(dUnc);
-        }
 
-        const d1_fixed = bounds[1][0] - x[1];
         if (Math.abs(J[1][0]) > 1e-6) {
-          const d0_active = (-gVal[1] - J[1][1] * d1_fixed) / J[1][0];
-          const cand = [d0_active, d1_fixed];
-          if (isFeasibleD(cand) && qpCost(cand) < minQP) {
-            bestD = cand;
-            minQP = qpCost(cand);
-          }
+          const d0_dp = (-gVal[1] - J[1][1] * d1_target) / J[1][0];
+          candidates.push([Math.max(d0_low, Math.min(d0_high, d0_dp)), d1_target]);
+        }
+        if (Math.abs(J[0][0]) > 1e-6) {
+          const d0_twg = (-gVal[0] - J[0][1] * d1_target) / J[0][0];
+          candidates.push([Math.max(d0_low, Math.min(d0_high, d0_twg)), d1_target]);
         }
 
-        const candUpper = [bounds[0][1] - x[0], d1_fixed];
-        if (isFeasibleD(candUpper) && qpCost(candUpper) < minQP) {
-          bestD = candUpper;
-          minQP = qpCost(candUpper);
-        }
+        candidates.forEach(cand => {
+          const cost = qpMerit(cand);
+          if (cost < minQP) {
+            minQP = cost;
+            bestD = cand;
+          }
+        });
 
         const d = bestD;
         const normD = Math.sqrt(d[0]*d[0] + d[1]*d[1]);
@@ -4780,7 +4855,7 @@ Finite Difference: Forward Difference h = 1e-5 | Hessian: BFGS Quasi-Newton Upda
         const mu = 50.0;
         function merit(v) {
           const gV = g(v);
-          return f(v) + mu * (Math.max(0, -gV[0]) + Math.max(0, -gV[1]));
+          return f(v) + mu * (Math.max(0, -gV[0]) + Math.max(0, -gV[1]) + Math.max(0, -gV[2]));
         }
 
         let alpha = 1.0;
