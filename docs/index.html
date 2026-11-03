@@ -1201,8 +1201,47 @@
               </div>
 
               <!-- Optimization Log Box -->
+              <!-- Live SLSQP Progress Bar -->
+              <div style="width: 100%; height: 5px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; margin-bottom: 8px;">
+                <div id="mdo-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #38bdf8, #22c55e); transition: width 0.15s ease;"></div>
+              </div>
+
               <div id="mdo-opt-log" style="background: #020617; border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; padding: 8px 12px; font-family: var(--font-mono); font-size: 10.5px; color: #94a3b8; max-height: 110px; overflow-y: auto; line-height: 1.5;">
                 Click "Solve Optimal Engine" to execute sequential quadratic gradient iterations...
+              </div>
+
+              <!-- Before vs After Optimization Diff Card -->
+              <div id="mdo-diff-card" style="display: none; margin-top: 12px; background: rgba(2,6,23,0.95); border: 1px solid rgba(34,197,94,0.4); border-radius: 8px; padding: 12px; font-family: var(--font-mono); font-size: 11px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                  <strong style="color: #22c55e;">⚡ OPTIMIZATION CONVERGED (BEFORE vs. AFTER)</strong>
+                  <span id="mdo-diff-revid" style="color: #38bdf8; font-weight: 700; background: rgba(56,189,248,0.15); padding: 1px 6px; border-radius: 4px;">REV-SLSQP</span>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; text-align: center; margin-bottom: 10px;">
+                  <div style="background: rgba(15,23,42,0.8); padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);">
+                    <div style="color: #94a3b8; font-size: 10px;">DRY MASS PROXY</div>
+                    <div id="mdo-diff-mass" style="color: #22c55e; font-size: 14px; font-weight: 800;">-38.4%</div>
+                    <div id="mdo-diff-mass-sub" style="color: #64748b; font-size: 9.5px;">14.2 kg ➔ 8.7 kg</div>
+                  </div>
+                  <div style="background: rgba(15,23,42,0.8); padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);">
+                    <div style="color: #94a3b8; font-size: 10px;">TOTAL LENGTH</div>
+                    <div id="mdo-diff-len" style="color: #38bdf8; font-size: 14px; font-weight: 800;">-18.2%</div>
+                    <div id="mdo-diff-len-sub" style="color: #64748b; font-size: 9.5px;">520 mm ➔ 425 mm</div>
+                  </div>
+                  <div style="background: rgba(15,23,42,0.8); padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);">
+                    <div style="color: #94a3b8; font-size: 10px;">HOT-WALL MARGIN</div>
+                    <div id="mdo-diff-twg" style="color: #22c55e; font-size: 14px; font-weight: 800;">SAFE</div>
+                    <div id="mdo-diff-twg-sub" style="color: #64748b; font-size: 9.5px;">Twg = 424 K &le; 950 K</div>
+                  </div>
+                  <div style="background: rgba(15,23,42,0.8); padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);">
+                    <div style="color: #94a3b8; font-size: 10px;">COOLING DROP &Delta;P</div>
+                    <div id="mdo-diff-dp" style="color: #eab308; font-size: 14px; font-weight: 800;">ACTIVE</div>
+                    <div id="mdo-diff-dp-sub" style="color: #64748b; font-size: 9.5px;">11.5 bar &le; 20.0 bar</div>
+                  </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                  <span style="color: #94a3b8; font-size: 10px;">3D CAD model morphed to optimal dimensions live in viewport above.</span>
+                  <button onclick="downloadParametricStl()" style="background: linear-gradient(135deg, rgba(16,185,129,0.3), rgba(34,197,94,0.2)); color: #22c55e; border: 1px solid rgba(34,197,94,0.6); padding: 5px 12px; border-radius: 5px; font-weight: 700; font-size: 11px; cursor: pointer; white-space: nowrap;">💾 Download 3D STL</button>
+                </div>
               </div>
             </div>
 
@@ -2643,8 +2682,8 @@
       const btnMdo = document.getElementById('btn-view-mdo');
       if (btnMdo) btnMdo.className = 'btn-cad-tab' + (mode === 'mdo' ? ' active' : '');
 
-      document.getElementById('controls-3d').style.display = (mode === '3d' ? 'flex' : 'none');
-      document.getElementById('view-3d-wrapper').style.display = (mode === '3d' ? 'block' : 'none');
+      document.getElementById('controls-3d').style.display = (mode === '3d' || mode === 'mdo' ? 'flex' : 'none');
+      document.getElementById('view-3d-wrapper').style.display = (mode === '3d' || mode === 'mdo' ? 'block' : 'none');
       document.getElementById('view-bp-wrapper').style.display = (mode === 'bp' ? 'block' : 'none');
       document.getElementById('view-thermal-wrapper').style.display = (mode === 'thermal' ? 'block' : 'none');
       const viewTr = document.getElementById('view-trace-wrapper');
@@ -2660,7 +2699,7 @@
         renderMdoView();
       }
 
-      if (mode === '3d') {
+      if (mode === '3d' || mode === 'mdo') {
         if (!window.THREE) {
           const wrapper = document.getElementById('view-3d-wrapper');
           if (wrapper && !document.getElementById('three-fallback-msg')) {
@@ -4958,6 +4997,8 @@ print("Exported 3D STEP model: navronis_hollow_thrust_chamber.step (Hollow insid
         parseFloat(document.getElementById('inp-pc').value) || 120,
         parseFloat(document.getElementById('inp-eps').value) || 30
       ];
+      window.mdoBaselinePt = evalPropulsionPoint(thrust, x[0], x[1], 1.0, prop, mat);
+      window.mdoBaselinePt = evalPropulsionPoint(thrust, x[0], x[1], 1.0, prop, mat);
       const bounds = [[60.0, 150.0], [15.0, 45.0]];
 
       logBox.innerHTML = `[Init] Sequential Quadratic Programming (SLSQP / Kraft 1988) Initialized<br>
@@ -5087,21 +5128,34 @@ Finite Difference: Forward Difference h = 1e-5 | Hessian: BFGS Quasi-Newton Upda
         }
 
         const currentPt = evalPropulsionPoint(thrust, x[0], x[1], 1.0, prop, mat);
-        logBox.innerHTML += `<br>Iteration #${iter}: Pc = ${x[0].toFixed(2)} bar, &epsilon; = ${x[1].toFixed(2)} &rarr; Mass Proxy = ${currentPt.dry_mass.toFixed(3)} kg, &Delta;P = ${currentPt.dp_coolant.toFixed(3)} bar, Twg = ${currentPt.twg.toFixed(1)} K (||d|| = ${normD.toExponential(2)})`;
+        
+        // 🚀 LIVE 3D CAD MORPHING: Update main engine sliders and re-render 3D Three.js mesh on every iteration!
+        const inPc = document.getElementById('inp-pc');
+        const inEps = document.getElementById('inp-eps');
+        if (inPc) inPc.value = x[0].toFixed(1);
+        if (inEps) inEps.value = x[1].toFixed(1);
+        calculateSizing(false);
+
+        // Update progress bar
+        const progBar = document.getElementById('mdo-progress-bar');
+        if (progBar) progBar.style.width = Math.min(100, Math.round((iter / maxIter) * 100)) + '%';
+
+        logBox.innerHTML += `<br>Iteration #${iter}: Pc = ${x[0].toFixed(2)} bar, &epsilon; = ${x[1].toFixed(2)} &rarr; Mass = ${currentPt.dry_mass.toFixed(2)} kg, &Delta;P = ${currentPt.dp_coolant.toFixed(2)} bar, Twg = ${currentPt.twg.toFixed(0)} K`;
         logBox.scrollTop = logBox.scrollHeight;
 
         if (normD < 1e-5 || iter >= maxIter) {
           clearInterval(interval);
+          if (progBar) progBar.style.width = '100%';
+
           const revId = 'REV-SLSQP-' + Math.random().toString(16).substring(2, 8).toUpperCase();
           const resTwg = maxTwg - currentPt.twg;
           const resDp = maxDp - currentPt.dp_coolant;
 
-          logBox.innerHTML += `<br><strong style="color:#22c55e;">✓ CONVERGED in ${iter} SLSQP iterations (KKT Stationarity Satisfied)</strong><br>
+          logBox.innerHTML += `<br><strong style="color:#22c55e;">✓ CONVERGED in ${iter} SLSQP iterations (KKT Satisfied)</strong><br>
 &bull; Optimal Pc: <span style="color:#38bdf8;">${x[0].toFixed(2)} bar</span> | &epsilon;: <span style="color:#38bdf8;">${x[1].toFixed(2)}</span><br>
-&bull; Optimal Dry Mass Proxy: <span style="color:#22c55e;">${currentPt.dry_mass.toFixed(3)} kg</span> (Active Constraint Boundary)<br>
-&bull; Constraint 1 (Twg &le; ${maxTwg} K): <span style="color:#22c55e;">PASS (Margin: +${resTwg.toFixed(1)} K)</span><br>
-&bull; Constraint 2 (&Delta;P &le; ${maxDp.toFixed(1)} bar): <span style="color:#22c55e;">ACTIVE (Residual: ${resDp.toExponential(2)} bar)</span><br>
-&bull; Stamped Revision ID: <span style="color:#38bdf8;">${revId}</span>`;
+&bull; Optimal Dry Mass: <span style="color:#22c55e;">${currentPt.dry_mass.toFixed(2)} kg</span> (Active Boundary)<br>
+&bull; Twg Margin: <span style="color:#22c55e;">+${resTwg.toFixed(1)} K Safe</span> | &Delta;P Margin: <span style="color:#eab308;">${resDp.toFixed(2)} bar</span><br>
+&bull; Stamped Revision: <span style="color:#38bdf8; font-weight:700;">${revId}</span>`;
           logBox.scrollTop = logBox.scrollHeight;
 
           pill.innerText = 'SLSQP Converged (KKT)';
@@ -5112,6 +5166,30 @@ Finite Difference: Forward Difference h = 1e-5 | Hessian: BFGS Quasi-Newton Upda
             btnApply.disabled = false;
             btnApply.style.opacity = '1.0';
             btnApply.style.cursor = 'pointer';
+          }
+
+          // Populate and reveal Before vs After Diff Card
+          const diffCard = document.getElementById('mdo-diff-card');
+          if (diffCard && window.mdoBaselinePt) {
+            const base = window.mdoBaselinePt;
+            const massDelta = ((currentPt.dry_mass - base.dry_mass) / base.dry_mass) * 100;
+            const lenDelta = ((currentPt.totL_mm - base.totL_mm) / base.totL_mm) * 100;
+            
+            document.getElementById('mdo-diff-revid').innerText = revId;
+            document.getElementById('mdo-diff-mass').innerText = (massDelta >= 0 ? '+' : '') + massDelta.toFixed(1) + '%';
+            document.getElementById('mdo-diff-mass').style.color = (massDelta <= 0 ? '#22c55e' : '#ef4444');
+            document.getElementById('mdo-diff-mass-sub').innerText = base.dry_mass.toFixed(1) + ' kg ➔ ' + currentPt.dry_mass.toFixed(1) + ' kg';
+            
+            document.getElementById('mdo-diff-len').innerText = (lenDelta >= 0 ? '+' : '') + lenDelta.toFixed(1) + '%';
+            document.getElementById('mdo-diff-len-sub').innerText = base.totL_mm.toFixed(0) + ' mm ➔ ' + currentPt.totL_mm.toFixed(0) + ' mm';
+            
+            document.getElementById('mdo-diff-twg').innerText = (resTwg >= 0 ? '+' + resTwg.toFixed(0) + ' K SAFE' : 'LIMIT EXCEEDED');
+            document.getElementById('mdo-diff-twg-sub').innerText = 'Twg = ' + currentPt.twg.toFixed(0) + ' K ≤ ' + maxTwg + ' K';
+            
+            document.getElementById('mdo-diff-dp').innerText = currentPt.dp_coolant.toFixed(1) + ' bar';
+            document.getElementById('mdo-diff-dp-sub').innerText = 'Limit: ' + maxDp.toFixed(1) + ' bar';
+            
+            diffCard.style.display = 'block';
           }
         }
       }, 100);
