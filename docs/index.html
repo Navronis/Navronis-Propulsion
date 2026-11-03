@@ -3459,7 +3459,7 @@
 
         // Structural Injector Dome Face Plate at y = 0
         const injDomeMat = new THREE.MeshStandardMaterial({
-          color: 0x334155, // Aerospace Nickel-Chromium Face Dome
+          color: 0x334155,
           metalness: 0.65,
           roughness: 0.28,
           side: THREE.DoubleSide
@@ -3470,7 +3470,7 @@
 
         // Injector Orifice Borehole Material (True drilled holes into faceplate)
         const holeMat = new THREE.MeshStandardMaterial({
-          color: 0x090d16, // Dark recessed fluid borehole interior
+          color: 0x090d16,
           roughness: 0.95,
           metalness: 0.10
         });
@@ -3490,17 +3490,14 @@
 
         // External Propellant Manifolds & Domes (Aligned with 360 / 180 / 90 section cut axis)
         if (injFamily === 'pintle') {
-          // Central Axial LOX Feed Dome Cylinder
           const extLoxDome = new THREE.CylinderGeometry(Rc * 0.42, Rc * 0.42, flangeThick * 2.2, 24, 1, false, 0, cutawayPhi);
           extLoxDome.translate(0, flangeThick * 1.4, 0);
           injectorGroup.add(new THREE.Mesh(extLoxDome, boltMat));
         } else if (injFamily === 'coaxial') {
-          // High-Pressure Welded Hemispherical LOX Dome Cap (phiStart = PI/2 for exact +Z alignment)
           const domeCapGeom = new THREE.SphereGeometry(Rc * 0.95, 24, 16, Math.PI / 2, cutawayPhi, 0, Math.PI / 2);
           domeCapGeom.translate(0, flangeThick * 0.7, 0);
           injectorGroup.add(new THREE.Mesh(domeCapGeom, injDomeMat));
         } else if (injFamily === 'swirl') {
-          // Dual Toroidal Manifolds Encircling Injector Head (aligned with +Z sweep)
           const torus1 = new THREE.TorusGeometry(Rc * 1.05, flangeThick * 0.45, 8, 36, cutawayPhi);
           torus1.rotateX(-Math.PI / 2);
           torus1.rotateY(-Math.PI / 2);
@@ -3513,7 +3510,6 @@
           torus2.translate(0, flangeThick * 1.4, 0);
           injectorGroup.add(new THREE.Mesh(torus2, boltMat));
         } else {
-          // Doublet Manifold Distribution Plate with Dual Angled Feed Bosses
           const distPlate = new THREE.CylinderGeometry(Rc * 0.85, Rc * 0.85, flangeThick * 1.2, 24, 1, false, 0, cutawayPhi);
           distPlate.translate(0, flangeThick * 0.9, 0);
           injectorGroup.add(new THREE.Mesh(distPlate, boltMat));
@@ -3529,22 +3525,18 @@
         const loxH = flangeThick * 2.2;
         const loxY0 = flangeThick * 0.7 + (injFamily === 'coaxial' ? Rc * 0.95 : (injFamily === 'pintle' ? flangeThick * 2.2 : (injFamily === 'swirl' ? flangeThick * 1.6 : flangeThick * 1.2)));
 
-        // A. Outer Axial LOX Pipe Sleeve
         const loxPipeGeom = new THREE.CylinderGeometry(loxPipeR, loxPipeR, loxH, 24, 1, false, 0, cutawayPhi);
         loxPipeGeom.translate(0, loxY0 + loxH / 2, 0);
         injectorGroup.add(new THREE.Mesh(loxPipeGeom, boltMat));
 
-        // B. Drilled Hollow LOX Entrance Borehole Interior (Dark recessed borehole)
         const loxBoreGeom = new THREE.CylinderGeometry(loxBoreR, loxBoreR, loxH * 1.02, 24, 1, false, 0, cutawayPhi);
         loxBoreGeom.translate(0, loxY0 + loxH / 2, 0);
         injectorGroup.add(new THREE.Mesh(loxBoreGeom, holeMat));
 
-        // C. ANSI/ASME High-Pressure Entrance Mounting Flange Rim
         const loxFlangeGeom = new THREE.CylinderGeometry(loxPipeR * 1.42, loxPipeR * 1.42, flangeThick * 0.38, 24, 1, false, 0, cutawayPhi);
         loxFlangeGeom.translate(0, loxY0 + loxH - flangeThick * 0.19, 0);
         injectorGroup.add(new THREE.Mesh(loxFlangeGeom, boltMat));
 
-        // D. 6 Flange Bolting Studs on LOX Entrance
         for (let fb = 0; fb < 6; fb++) {
           const fAng = (fb / 6) * 2 * Math.PI;
           if (fAng <= cutawayPhi || cutawayPhi >= 1.99 * Math.PI) {
@@ -3554,13 +3546,11 @@
           }
         }
 
-        // E. Liquid Oxygen (LOX) Cryogenic Fluid Stream Indicator at Entrance Hole
         const loxFluidMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.15, metalness: 0.65 });
         const loxFluidRing = new THREE.CylinderGeometry(loxBoreR * 0.98, loxBoreR * 0.98, 0.0015, 20, 1, false, 0, cutawayPhi);
         loxFluidRing.translate(0, loxY0 + loxH, 0);
         injectorGroup.add(new THREE.Mesh(loxFluidRing, loxFluidMat));
 
-        // F. Side Radial GOX / Fuel Gas Pipe (Feeds into dome manifold from side)
         const goxPipeR = Math.max(0.006, Rc * 0.18);
         const goxBoreR = goxPipeR * 0.70;
         const goxLen = Rc * 0.85;
@@ -3568,25 +3558,21 @@
         const goxX0 = Rc * 0.88;
         const goxX1 = goxX0 + goxLen;
 
-        // Radial Pipe Conduit extending along +X
         const goxPipeGeom = new THREE.CylinderGeometry(goxPipeR, goxPipeR, goxLen, 20);
         goxPipeGeom.rotateZ(Math.PI / 2);
         goxPipeGeom.translate(goxX0 + goxLen / 2, goxY, 0);
         injectorGroup.add(new THREE.Mesh(goxPipeGeom, boltMat));
 
-        // Welded Reinforcement Saddle Boss at dome junction
         const goxBossGeom = new THREE.CylinderGeometry(goxPipeR * 1.45, goxPipeR * 1.45, flangeThick * 0.5, 18);
         goxBossGeom.rotateZ(Math.PI / 2);
         goxBossGeom.translate(goxX0 + flangeThick * 0.25, goxY, 0);
         injectorGroup.add(new THREE.Mesh(goxBossGeom, boltMat));
 
-        // Radial Entrance Flange Collar
         const goxFlangeGeom = new THREE.CylinderGeometry(goxPipeR * 1.42, goxPipeR * 1.42, flangeThick * 0.35, 18);
         goxFlangeGeom.rotateZ(Math.PI / 2);
         goxFlangeGeom.translate(goxX1 - flangeThick * 0.17, goxY, 0);
         injectorGroup.add(new THREE.Mesh(goxFlangeGeom, boltMat));
 
-        // 4 Radial Flange Bolting Studs
         [Math.PI / 4, 3 * Math.PI / 4, 5 * Math.PI / 4, 7 * Math.PI / 4].forEach(fa => {
           const gb = new THREE.CylinderGeometry(0.0014, 0.0014, flangeThick * 0.5, 6);
           gb.rotateZ(Math.PI / 2);
@@ -3594,13 +3580,11 @@
           injectorGroup.add(new THREE.Mesh(gb, boltMat));
         });
 
-        // Open Entrance Borehole Hole facing outward for GOX / Fuel Gas
         const goxHoleGeom = new THREE.CylinderGeometry(goxBoreR, goxBoreR, 0.002, 16);
         goxHoleGeom.rotateZ(Math.PI / 2);
         goxHoleGeom.translate(goxX1 + 0.0005, goxY, 0);
         injectorGroup.add(new THREE.Mesh(goxHoleGeom, holeMat));
 
-        // Gaseous Propellant Fluid Indicator at side borehole face
         const goxStreamMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.25, metalness: 0.6 });
         const goxStream = new THREE.CylinderGeometry(goxBoreR * 0.95, goxBoreR * 0.95, 0.001, 16);
         goxStream.rotateZ(Math.PI / 2);
@@ -3609,39 +3593,33 @@
 
         // Distinct Injector Element Geometry by Family:
         if (injFamily === 'pintle') {
-          // Central Pintle Injector (Merlin 1D / Apollo LMDE / Rutherford)
           const pintleShaftR = Math.max(0.004, Rc * 0.18);
           const pintleLen = Math.min(Lcyl * 0.48, 0.08);
           const pintleMat = new THREE.MeshStandardMaterial({
-            color: 0xf59e0b, // Gold Titanium-Nitride High-Temperature Tip
+            color: 0xf59e0b,
             metalness: 0.85,
             roughness: 0.18
           });
 
-          // A. Central drilled faceplate hole bore
           const centralHole = new THREE.CylinderGeometry(pintleShaftR * 1.8, pintleShaftR * 1.8, 0.0015, 24);
           centralHole.translate(0, -0.0005, 0);
           injectorGroup.add(new THREE.Mesh(centralHole, holeMat));
 
-          // B. Concentric Annular Fuel Orifice Slot Ring
           const annFuelR = pintleShaftR * 1.45;
           const annSlot = new THREE.CylinderGeometry(annFuelR, annFuelR, 0.002, 24);
           annSlot.translate(0, -0.001, 0);
           injectorGroup.add(new THREE.Mesh(annSlot, holeMat));
 
-          // C. Pintle Central Feed Shaft extending along -Y axis into chamber
           const shaftGeom = new THREE.CylinderGeometry(pintleShaftR, pintleShaftR, pintleLen, 24);
           shaftGeom.translate(0, -pintleLen / 2, 0);
           injectorGroup.add(new THREE.Mesh(shaftGeom, pintleMat));
 
-          // D. Conical Deflection Pintle Tip / Mushroom Head
           const coneH = pintleShaftR * 1.35;
           const tipGeom = new THREE.ConeGeometry(pintleShaftR * 1.5, coneH, 24);
           tipGeom.rotateX(Math.PI);
           tipGeom.translate(0, -pintleLen - coneH / 2, 0);
           injectorGroup.add(new THREE.Mesh(tipGeom, pintleMat));
 
-          // E. Radial Injection Orifice Holes/Slots around Pintle Tip (aligned coordinates)
           const nPintleHoles = 12;
           const pintleOrifMat = new THREE.MeshStandardMaterial({ color: 0x090d16, roughness: 0.9 });
           for (let ph = 0; ph < nPintleHoles; ph++) {
@@ -3656,30 +3634,26 @@
             }
           }
 
-          // F. Annular Fuel Sleeve Ring at base (x = 0)
           const sleeveGeom = new THREE.CylinderGeometry(pintleShaftR * 1.5, pintleShaftR * 1.5, flangeThick * 0.5, 24);
           sleeveGeom.translate(0, -flangeThick * 0.25, 0);
           injectorGroup.add(new THREE.Mesh(sleeveGeom, boltMat));
         }
         else if (injFamily === 'coaxial') {
-          // Shear Coaxial Injector Element Array (Raptor 2 / RS-25 SSME / RL-10)
           const elemMat = new THREE.MeshStandardMaterial({
-            color: 0xe2e8f0, // Stainless Steel Coaxial Posts
+            color: 0xe2e8f0,
             metalness: 0.72,
             roughness: 0.22
           });
           const oxPostMat = new THREE.MeshStandardMaterial({
-            color: 0x38bdf8, // Liquid Oxygen Central Tube
+            color: 0x38bdf8,
             metalness: 0.80,
             roughness: 0.25
           });
 
-          // Calculate element distribution from nElementsTarget
           const neTotal = Math.min(Math.max(7, nElementsTarget), 180);
           const elemR = Math.max(0.0020, Rc * (0.07 / Math.sqrt(neTotal / 19)));
           const postH = Math.min(Lcyl * 0.18, 0.024);
 
-          // Build ring distribution
           const ringList = [];
           if (neTotal <= 12) {
             ringList.push({ count: 1, radius: 0 });
@@ -3715,26 +3689,21 @@
             for (let i = 0; i < rg.count; i++) {
               const ang = rg.count === 1 ? 0 : (i / rg.count) * 2 * Math.PI;
               if (ang <= cutawayPhi || cutawayPhi >= 1.99 * Math.PI) {
-                // Aligned coordinates (sin, cos) matching Lathe revolution
                 const ex = rg.radius * Math.sin(ang);
                 const ez = rg.radius * Math.cos(ang);
 
-                // 1. Drilled Annular Fuel Orifice Borehole in faceplate
                 const annHole = new THREE.CylinderGeometry(elemR * 1.15, elemR * 1.15, 0.0015, 12);
                 annHole.translate(ex, -0.00075, ez);
                 injectorGroup.add(new THREE.Mesh(annHole, holeMat));
 
-                // 2. Coaxial Outer Sleeve Post
                 const elOuter = new THREE.CylinderGeometry(elemR, elemR, postH, 12);
                 elOuter.translate(ex, -postH / 2, ez);
                 injectorGroup.add(new THREE.Mesh(elOuter, elemMat));
 
-                // 3. Central Oxidizer Post Tube
                 const elInner = new THREE.CylinderGeometry(elemR * 0.48, elemR * 0.48, postH * 1.2, 10);
                 elInner.translate(ex, -postH * 0.6, ez);
                 injectorGroup.add(new THREE.Mesh(elInner, oxPostMat));
 
-                // 4. Central Oxidizer Borehole (dark fluid core)
                 const loxBore = new THREE.CylinderGeometry(elemR * 0.28, elemR * 0.28, postH * 1.25, 8);
                 loxBore.translate(ex, -postH * 0.625, ez);
                 injectorGroup.add(new THREE.Mesh(loxBore, holeMat));
@@ -3743,9 +3712,8 @@
           });
         }
         else if (injFamily === 'swirl') {
-          // Centrifugal Swirl Element Array (RD-180 / RD-170)
           const swirlMat = new THREE.MeshStandardMaterial({
-            color: 0xd97706, // Bronze/Copper Swirl Cavity Cups
+            color: 0xd97706,
             metalness: 0.75,
             roughness: 0.25
           });
@@ -3780,17 +3748,14 @@
                 const sx = rg.radius * Math.sin(ang);
                 const sz = rg.radius * Math.cos(ang);
 
-                // 1. Drilled Faceplate Recess Cavity Hole
                 const cupHole = new THREE.CylinderGeometry(swirlR * 1.15, swirlR * 1.15, 0.002, 14);
                 cupHole.translate(sx, -0.001, sz);
                 injectorGroup.add(new THREE.Mesh(cupHole, holeMat));
 
-                // 2. Swirl Cup Body
                 const cupGeom = new THREE.CylinderGeometry(swirlR, swirlR * 0.72, swirlH, 14);
                 cupGeom.translate(sx, -swirlH / 2, sz);
                 injectorGroup.add(new THREE.Mesh(cupGeom, swirlMat));
 
-                // 3. Central Vortex Discharge Orifice Hole
                 const dischargeHole = new THREE.CylinderGeometry(swirlR * 0.38, swirlR * 0.38, swirlH * 1.1, 10);
                 dischargeHole.translate(sx, -swirlH / 2, sz);
                 injectorGroup.add(new THREE.Mesh(dischargeHole, holeMat));
@@ -3799,9 +3764,8 @@
           });
         }
         else {
-          // Unlike Impinging Doublet Drilled Orifice Hole Array
           const orifMat = new THREE.MeshStandardMaterial({
-            color: 0x0284c7, // Aerospace Liquid Jet Stream
+            color: 0x0284c7,
             metalness: 0.8,
             roughness: 0.2
           });
@@ -3814,17 +3778,14 @@
               const fuelX = (Rc * 0.70) * Math.sin(ang);
               const fuelZ = (Rc * 0.70) * Math.cos(ang);
 
-              // 1. Drilled Oxidizer Orifice Hole in faceplate
               const oxHole = new THREE.CylinderGeometry(0.0022, 0.0022, 0.002, 8);
               oxHole.translate(oxX, -0.001, oxZ);
               injectorGroup.add(new THREE.Mesh(oxHole, holeMat));
 
-              // 2. Drilled Fuel Orifice Hole in faceplate
               const fuelHole = new THREE.CylinderGeometry(0.0020, 0.0020, 0.002, 8);
               fuelHole.translate(fuelX, -0.001, fuelZ);
               injectorGroup.add(new THREE.Mesh(fuelHole, holeMat));
 
-              // 3. Converging Liquid Jets
               const oxN = new THREE.CylinderGeometry(0.0012, 0.0012, 0.012, 8);
               oxN.rotateZ(0.25);
               oxN.translate(oxX, -0.006, oxZ);
@@ -3844,12 +3805,11 @@
         // Penetrates upper chamber wall (y = -Lcyl * 0.16) at 45 deg azimuth
         // =====================================================================
         const yIgn = -Lcyl * 0.16;
-        const phiIgn = Math.PI / 4; // 45 deg (solid in 360, 180, and 90 cuts)
+        const phiIgn = Math.PI / 4;
         const cosIgn = Math.cos(phiIgn);
         const sinIgn = Math.sin(phiIgn);
         const rJacket = Rc + tw + hc;
         
-        // Direction vectors for angled igniter penetration (tilt 25 deg downward)
         const ignAngle = 25.0 * Math.PI / 180.0;
         const cosTilt = Math.cos(ignAngle);
         const sinTilt = Math.sin(ignAngle);
@@ -3871,7 +3831,7 @@
         ignHexGeom.translate(rHex * sinIgn, yHex, rHex * cosIgn);
         engineGroup.add(new THREE.Mesh(ignHexGeom, ignHexMat));
 
-        // 3. High-Voltage Alumina Ceramic Insulator Core (pure white ceramic)
+        // 3. High-Voltage Alumina Ceramic Insulator Core
         const ceramicMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.12, metalness: 0.08 });
         const cerGeom = new THREE.CylinderGeometry(0.0062, 0.0062, 0.024, 16);
         cerGeom.rotateZ(-ignAngle);
@@ -3881,7 +3841,6 @@
         cerGeom.translate(rCer * sinIgn, yCer, rCer * cosIgn);
         engineGroup.add(new THREE.Mesh(cerGeom, ceramicMat));
 
-        // Anti-flashover concentric barrier ribs on ceramic insulator
         [0.020, 0.025, 0.030].forEach(uRib => {
           const ribCer = new THREE.CylinderGeometry(0.0076, 0.0076, 0.002, 16);
           ribCer.rotateZ(-ignAngle);
@@ -3892,7 +3851,7 @@
           engineGroup.add(new THREE.Mesh(ribCer, ceramicMat));
         });
 
-        // 4. Exciter Electrical Lead Terminal (gold/bronze contact pin)
+        // 4. Exciter Electrical Lead Terminal
         const ignTermMat = new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.90, roughness: 0.18 });
         const termGeom = new THREE.CylinderGeometry(0.0035, 0.0035, 0.010, 12);
         termGeom.rotateZ(-ignAngle);
@@ -3902,7 +3861,7 @@
         termGeom.translate(rTerm * sinIgn, yTerm, rTerm * cosIgn);
         engineGroup.add(new THREE.Mesh(termGeom, ignTermMat));
 
-        // 5. Penetration Torch Tube into Chamber Hot Gas Liner (at r = Rc)
+        // 5. Penetration Torch Tube into Chamber Hot Gas Liner
         const ignTubeGeom = new THREE.CylinderGeometry(0.0045, 0.0045, (rJacket - Rc) * 1.1, 14);
         ignTubeGeom.rotateZ(-ignAngle);
         ignTubeGeom.rotateY(phiIgn - Math.PI / 2);
@@ -3921,7 +3880,6 @@
         sparkTipGeom.translate(Rc * sinIgn, yIgn - 0.002, Rc * cosIgn);
         engineGroup.add(new THREE.Mesh(sparkTipGeom, sparkMat));
 
-        // Internal Spark Torch Ignition Point Light
         const sparkLight = new THREE.PointLight(0x38bdf8, 2.2, totalL * 0.8);
         sparkLight.position.set(Rc * sinIgn, yIgn - 0.002, Rc * cosIgn);
         engineGroup.add(sparkLight);
@@ -3932,7 +3890,7 @@
         const channelRibGroup = new THREE.Group();
         const nRibs = Math.min(geom.nch || 80, 96);
         const ribMat = new THREE.MeshStandardMaterial({
-          color: 0x1e293b, // Dark Milled Coolant Slot Ribs
+          color: 0x1e293b,
           metalness: 0.40,
           roughness: 0.45
         });
@@ -3957,7 +3915,6 @@
         // Feature 3: Nozzle Stiffener Ring Bands (Conical vs Bell)
         // =====================================================================
         if (geom.nozType === 'conical') {
-          // Conical Nozzle Exit Stiffening Bands (Aligned with +Z sweep)
           const bandMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.7, roughness: 0.3 });
           [0.35, 0.65, 0.92].forEach(u => {
             const bx = xThroat + u * Lnoz;
@@ -4011,7 +3968,7 @@
             const cap2 = new THREE.Mesh(capGeom2, sectionCapMat);
             engineGroup.add(cap2);
 
-            // Cap injector dome faceplate at phi = 0 (Y-Z plane)
+            // Cap injector dome faceplate at phi = 0
             const injCapPos1 = [
               0, 0, 0,
               0, flangeThick * 0.7, 0,
@@ -4044,595 +4001,7 @@
             console.warn('Error constructing section cut caps:', eCap);
           }
         }
-
-        if (cadShadingMode === 'edges') {
-          const edges = new THREE.EdgesGeometry(customLoadedGeom, 30);
-          const edgeMat = new THREE.LineBasicMaterial({
-            color: 0x0f172a,
-            linewidth: 1.2,
-            clippingPlanes: activePlanes,
-            clipIntersection: clipIntersection
-          });
-          const edgeLine = new THREE.LineSegments(edges, edgeMat);
-          edgeLine.position.sub(center);
-          modelPivot.add(edgeLine);
-        }
-        engineGroup.add(modelPivot);
-        displayedTriangles = customLoadedGeom.attributes.position.count / 3;
-        modelLabel = 'Custom Local Solid (.stl)';
-      }
-      else if (activeCadModelSource === 'opencascade') {
-        // Render exact OpenCASCADE 3D STEP/STL solid (matching chamber_30kn_hollow_wall.step/.stl)
-        const ocGeom = getOpenCascadeSolidGeometry();
-        if (ocGeom) {
-          pbrMat.clippingPlanes = activePlanes;
-          pbrMat.clipIntersection = clipIntersection;
-
-          const modelPivot = new THREE.Group();
-          const ocMesh = new THREE.Mesh(ocGeom, pbrMat);
-          const center = new THREE.Vector3();
-          ocGeom.computeBoundingBox();
-          ocGeom.boundingBox.getCenter(center);
-          ocMesh.position.sub(center);
-          modelPivot.add(ocMesh);
-
-          if (cadShadingMode === 'edges') {
-            if (!openCascadeCachedEdges) {
-              openCascadeCachedEdges = new THREE.EdgesGeometry(ocGeom, 32);
-            }
-            const edgeMat = new THREE.LineBasicMaterial({
-              color: 0x0f172a,
-              linewidth: 1.2,
-              clippingPlanes: activePlanes,
-              clipIntersection: clipIntersection
-            });
-            const edgeLine = new THREE.LineSegments(openCascadeCachedEdges, edgeMat);
-            edgeLine.position.sub(center);
-            modelPivot.add(edgeLine);
-          }
-
-          // Dynamically scale CAD solid to live computed length and diameter
-          const totalL_m = (geom.lcyl_mm + geom.lconv_mm + geom.lnoz_mm) * 0.001;
-          const scaleX = Math.max(0.05, totalL_m / 0.52095);
-          const exitOuterR_m = ((geom.de_mm / 2) + (geom.tw_mm || 3.0)) * 0.001;
-          const scaleR = Math.max(0.05, exitOuterR_m / 0.11976);
-          modelPivot.scale.set(scaleX, scaleR, scaleR);
-
-          engineGroup.add(modelPivot);
-
-          displayedTriangles = ocGeom.attributes.position.count / 3;
-          const cutSuffix = (Math.abs(cutawayPhi - 1.5 * Math.PI) < 0.05) ? ' (90° Quarter Cut)' :
-                           (Math.abs(cutawayPhi - Math.PI) < 0.05) ? ' (180° Half Cut)' : '';
-          modelLabel = 'OpenCASCADE STEP Solid' + cutSuffix;
-        } else {
-          // Fall back to parametric solid if base64 not present
-          activeCadModelSource = 'parametric';
-        }
-      }
-
-      if (activeCadModelSource === 'parametric') {
-        // Generate authentic aerospace liquid rocket thrust chamber assembly solid CAD
-        const scale = 0.001; // mm to meters
-        const Rc = (geom.dc_mm / 2) * scale;
-        const Rt = (geom.dt_mm / 2) * scale;
-        const Re = (geom.de_mm / 2) * scale;
-        const Lcyl = geom.lcyl_mm * scale;
-        const Lconv = geom.lconv_mm * scale;
-        const Lnoz = geom.lnoz_mm * scale;
-        const tw = Math.max((geom.tw_mm || 3.0) * scale, 0.002);
-        const hc = Math.max((geom.hc_mm || 1.8) * scale, 0.001);
-        const totalL = Lcyl + Lconv + Lnoz;
-
-        // 1. Gas-Side Inner Aerodynamic Contour
-        const innerPts = [];
-        const nCyl = 16;
-        for (let i = 0; i <= nCyl; i++) {
-          innerPts.push({ x: (i / nCyl) * Lcyl, r: Rc });
-        }
-
-        const nConv = 26;
-        const xThroat = Lcyl + Lconv;
-        for (let i = 1; i <= nConv; i++) {
-          const u = i / nConv;
-          const blend = 0.5 * (1.0 - Math.cos(u * Math.PI));
-          innerPts.push({ x: Lcyl + u * Lconv, r: Rc - (Rc - Rt) * blend });
-        }
-
-        const nNoz = 44;
-        if (geom.nozType === 'conical') {
-          for (let i = 1; i <= nNoz; i++) {
-            const u = i / nNoz;
-            const xVal = u * Lnoz;
-            const rVal = Rt + (Re - Rt) * u;
-            innerPts.push({ x: xThroat + xVal, r: rVal });
-          }
-        } else {
-          // True Rao 80% parabolic bell
-          const thetaN = 30.0 * Math.PI / 180.0;
-          const thetaE = (geom.theta_e || 8.0) * Math.PI / 180.0;
-          const m1 = Math.tan(thetaN), m2 = Math.tan(thetaE);
-          const P0x = 0.0, P0r = Rt;
-          const P2x = Lnoz, P2r = Re;
-          let P1x = (Re - Rt - m2 * Lnoz) / (m1 - m2 || 0.001);
-          if (P1x <= 0 || P1x >= Lnoz) P1x = 0.35 * Lnoz;
-          const P1r = m1 * P1x + Rt;
-
-          for (let i = 1; i <= nNoz; i++) {
-            const t = i / nNoz;
-            const inv = 1.0 - t;
-            const bx = inv * inv * P0x + 2.0 * inv * t * P1x + t * t * P2x;
-            const br = inv * inv * P0r + 2.0 * inv * t * P1r + t * t * P2r;
-            innerPts.push({ x: xThroat + bx, r: br });
-          }
-        }
-
-        // 2. Outer Structural Shell with True Aerospace Engineering CAD Features:
-        //    - Exit Stiffener Ring Flange
-        //    - Nozzle Wall
-        //    - Coolant Inlet Manifold Torus (at throat junction)
-        //    - Regenerative Cooling Jacket Shell along chamber
-        //    - Coolant Outlet Collector Manifold Torus (near injector)
-        //    - Injector Head Bolting Flange (at x = 0)
-        const outerPts = [];
-
-        // Feature A: Nozzle Exit Stiffening Lip Ring
-        const exitLipR = Re + tw * 2.2;
-        const exitLipLen = Math.min(Lnoz * 0.06, 0.014);
-        outerPts.push({ x: totalL, r: exitLipR });
-        outerPts.push({ x: totalL - exitLipLen, r: exitLipR });
-
-        // Feature B: Divergent Bell Outer Wall
-        const xThroatTurnaround = xThroat + Math.min(Lnoz * 0.08, 0.025);
-        for (let i = innerPts.length - 2; i >= 0; i--) {
-          const pt = innerPts[i];
-          if (pt.x > xThroatTurnaround && pt.x < totalL - exitLipLen) {
-            outerPts.push({ x: pt.x, r: pt.r + tw });
-          }
-        }
-
-        // Feature C: Toroidal Coolant Inlet Feed Manifold Ring at Throat Turnaround
-        const manifoldInletR = Rt + tw * 2.5 + hc * 2.0;
-        const rTorusInlet = Math.min(0.012, Lconv * 0.25);
-        for (let k = 0; k <= 8; k++) {
-          const ang = (k / 8) * Math.PI;
-          outerPts.push({
-            x: xThroatTurnaround - rTorusInlet * Math.cos(ang),
-            r: Rt + tw + hc + rTorusInlet * 0.75 * Math.sin(ang)
-          });
-        }
-
-        // Feature D: Convergent Outer Jacket Wall
-        for (let i = innerPts.length - 1; i >= 0; i--) {
-          const pt = innerPts[i];
-          if (pt.x > Lcyl && pt.x < (xThroatTurnaround - rTorusInlet)) {
-            outerPts.push({ x: pt.x, r: pt.r + tw + hc * 0.8 });
-          }
-        }
-
-        // Feature E: Chamber Cylindrical Regenerative Cooling Jacket Shell
-        const xManifoldOutlet = Math.max(0.020, Lcyl * 0.20);
-        outerPts.push({ x: Lcyl, r: Rc + tw + hc });
-        outerPts.push({ x: xManifoldOutlet + 0.010, r: Rc + tw + hc });
-
-        // Feature F: Toroidal Coolant Outlet Collector Manifold Ring
-        for (let k = 0; k <= 8; k++) {
-          const ang = (k / 8) * Math.PI;
-          outerPts.push({
-            x: xManifoldOutlet - 0.008 * Math.cos(ang),
-            r: Rc + tw + hc + 0.008 * Math.sin(ang)
-          });
-        }
-
-        // Feature G: Top Injector Head Mounting Flange at x = 0
-        const flangeThick = Math.min(0.015, Lcyl * 0.12);
-        const flangeR = Rc * 1.25;
-        outerPts.push({ x: flangeThick, r: Rc + tw + hc });
-        outerPts.push({ x: flangeThick, r: flangeR });
-        outerPts.push({ x: 0.0, r: flangeR });
-
-        // =====================================================================
-        // Feature 1: True Aerospace 3D Injector Head Assembly with Drilled Orifice Holes
-        // =====================================================================
-        const injectorGroup = new THREE.Group();
-        const injFamily = geom.injType || 'coaxial';
-        const nElementsTarget = geom.n_elements || (injFamily === 'pintle' ? 1 : (injFamily === 'coaxial' ? 19 : 14));
-
-        // Dedicated Internal Chamber Point Light for deep cavity illumination
-        const cavityLight = new THREE.PointLight(0xfff7ed, 1.8, totalL * 2.5);
-        cavityLight.position.set(0, -Lcyl * 0.5, 0);
-        engineGroup.add(cavityLight);
-
-        // Structural Injector Dome Face Plate at y = 0
-        const injDomeMat = new THREE.MeshStandardMaterial({
-          color: 0x334155, // Aerospace Nickel-Chromium Face Dome
-          metalness: 0.65,
-          roughness: 0.28,
-          side: THREE.DoubleSide
-        });
-        const domeGeom = new THREE.CylinderGeometry(Rc * 0.99, Rc * 0.99, flangeThick * 0.7, 48, 1, false, 0, cutawayPhi);
-        domeGeom.translate(0, flangeThick * 0.35, 0);
-        injectorGroup.add(new THREE.Mesh(domeGeom, injDomeMat));
-
-        // Injector Orifice Borehole Material (True drilled holes into faceplate)
-        const holeMat = new THREE.MeshStandardMaterial({
-          color: 0x090d16, // Dark recessed fluid borehole interior
-          roughness: 0.95,
-          metalness: 0.10
-        });
-
-        // Injector Flange Perimeter Bolting Studs
-        const nBolts = Math.max(8, Math.min(24, Math.round(Rc * 160)));
-        const boltR = Rc * 1.12;
-        const boltMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.8, roughness: 0.2 });
-        for (let b = 0; b < nBolts; b++) {
-          const ang = (b / nBolts) * 2 * Math.PI;
-          if (ang <= cutawayPhi || cutawayPhi >= 1.99 * Math.PI) {
-            const boltGeom = new THREE.CylinderGeometry(0.0022, 0.0022, flangeThick * 1.3, 8);
-            boltGeom.translate(boltR * Math.cos(ang), flangeThick * 0.5, boltR * Math.sin(ang));
-            injectorGroup.add(new THREE.Mesh(boltGeom, boltMat));
-          }
-        }
-
-        // External Propellant Manifolds & Domes (Distinct exterior geometry visible from outside)
-        if (injFamily === 'pintle') {
-          // Central Axial LOX Feed Dome Cylinder
-          const extLoxDome = new THREE.CylinderGeometry(Rc * 0.42, Rc * 0.42, flangeThick * 2.2, 24);
-          extLoxDome.translate(0, flangeThick * 1.4, 0);
-          injectorGroup.add(new THREE.Mesh(extLoxDome, boltMat));
-
-          // Radial Fuel Inlet Elbow Pipe
-          const fuelPipe = new THREE.CylinderGeometry(Rc * 0.16, Rc * 0.16, Rc * 0.70, 16);
-          fuelPipe.rotateZ(Math.PI / 2);
-          fuelPipe.translate(Rc * 0.85, flangeThick * 0.8, 0);
-          injectorGroup.add(new THREE.Mesh(fuelPipe, boltMat));
-        } else if (injFamily === 'coaxial') {
-          // High-Pressure Welded Hemispherical LOX Dome Cap
-          const domeCapGeom = new THREE.SphereGeometry(Rc * 0.95, 24, 16, 0, cutawayPhi, 0, Math.PI / 2);
-          domeCapGeom.translate(0, flangeThick * 0.7, 0);
-          injectorGroup.add(new THREE.Mesh(domeCapGeom, injDomeMat));
-
-          // Main LOX Inlet Duct Flange Boss
-          const oxInlet = new THREE.CylinderGeometry(Rc * 0.28, Rc * 0.28, flangeThick * 1.6, 16);
-          oxInlet.translate(0, flangeThick * 0.7 + Rc * 0.95, 0);
-          injectorGroup.add(new THREE.Mesh(oxInlet, boltMat));
-        } else if (injFamily === 'swirl') {
-          // Dual Toroidal Manifolds Encircling Injector Head
-          const torus1 = new THREE.TorusGeometry(Rc * 1.05, flangeThick * 0.45, 8, 36, cutawayPhi);
-          torus1.rotateX(Math.PI / 2);
-          torus1.translate(0, flangeThick * 0.8, 0);
-          injectorGroup.add(new THREE.Mesh(torus1, boltMat));
-
-          const torus2 = new THREE.TorusGeometry(Rc * 0.65, flangeThick * 0.35, 8, 32, cutawayPhi);
-          torus2.rotateX(Math.PI / 2);
-          torus2.translate(0, flangeThick * 1.4, 0);
-          injectorGroup.add(new THREE.Mesh(torus2, boltMat));
-        } else {
-          // Doublet Manifold Distribution Plate with Dual Angled Feed Bosses
-          const distPlate = new THREE.CylinderGeometry(Rc * 0.85, Rc * 0.85, flangeThick * 1.2, 24);
-          distPlate.translate(0, flangeThick * 0.9, 0);
-          injectorGroup.add(new THREE.Mesh(distPlate, boltMat));
-        }
-
-        // Distinct Injector Element Geometry by Family:
-        if (injFamily === 'pintle') {
-          // Central Pintle Injector (Merlin 1D / Apollo LMDE / Rutherford)
-          const pintleShaftR = Math.max(0.004, Rc * 0.18);
-          const pintleLen = Math.min(Lcyl * 0.48, 0.08);
-          const pintleMat = new THREE.MeshStandardMaterial({
-            color: 0xf59e0b, // Gold Titanium-Nitride High-Temperature Tip
-            metalness: 0.85,
-            roughness: 0.18
-          });
-
-          // A. Central drilled faceplate hole bore
-          const centralHole = new THREE.CylinderGeometry(pintleShaftR * 1.8, pintleShaftR * 1.8, 0.0015, 24);
-          centralHole.translate(0, -0.0005, 0);
-          injectorGroup.add(new THREE.Mesh(centralHole, holeMat));
-
-          // B. Concentric Annular Fuel Orifice Slot Ring
-          const annFuelR = pintleShaftR * 1.45;
-          const annSlot = new THREE.CylinderGeometry(annFuelR, annFuelR, 0.002, 24);
-          annSlot.translate(0, -0.001, 0);
-          injectorGroup.add(new THREE.Mesh(annSlot, holeMat));
-
-          // C. Pintle Central Feed Shaft extending along -Y axis into chamber
-          const shaftGeom = new THREE.CylinderGeometry(pintleShaftR, pintleShaftR, pintleLen, 24);
-          shaftGeom.translate(0, -pintleLen / 2, 0);
-          injectorGroup.add(new THREE.Mesh(shaftGeom, pintleMat));
-
-          // D. Conical Deflection Pintle Tip / Mushroom Head
-          const coneH = pintleShaftR * 1.35;
-          const tipGeom = new THREE.ConeGeometry(pintleShaftR * 1.5, coneH, 24);
-          tipGeom.rotateX(Math.PI);
-          tipGeom.translate(0, -pintleLen - coneH / 2, 0);
-          injectorGroup.add(new THREE.Mesh(tipGeom, pintleMat));
-
-          // E. Radial Injection Orifice Holes/Slots around Pintle Tip
-          const nPintleHoles = 12;
-          const pintleOrifMat = new THREE.MeshStandardMaterial({ color: 0x090d16, roughness: 0.9 });
-          for (let ph = 0; ph < nPintleHoles; ph++) {
-            const pAng = (ph / nPintleHoles) * 2 * Math.PI;
-            if (pAng <= cutawayPhi || cutawayPhi >= 1.99 * Math.PI) {
-              const hR = pintleShaftR * 1.25;
-              const hGeom = new THREE.CylinderGeometry(0.0009, 0.0009, pintleShaftR * 0.6, 6);
-              hGeom.rotateZ(Math.PI / 2);
-              hGeom.rotateY(pAng);
-              hGeom.translate(hR * Math.cos(pAng), -pintleLen - coneH * 0.25, hR * Math.sin(pAng));
-              injectorGroup.add(new THREE.Mesh(hGeom, pintleOrifMat));
-            }
-          }
-
-          // F. Annular Fuel Sleeve Ring at base (x = 0)
-          const sleeveGeom = new THREE.CylinderGeometry(pintleShaftR * 1.5, pintleShaftR * 1.5, flangeThick * 0.5, 24);
-          sleeveGeom.translate(0, -flangeThick * 0.25, 0);
-          injectorGroup.add(new THREE.Mesh(sleeveGeom, boltMat));
-        }
-        else if (injFamily === 'coaxial') {
-          // Shear Coaxial Injector Element Array (Raptor 2 / RS-25 SSME / RL-10)
-          const elemMat = new THREE.MeshStandardMaterial({
-            color: 0xe2e8f0, // Stainless Steel Coaxial Posts
-            metalness: 0.72,
-            roughness: 0.22
-          });
-          const oxPostMat = new THREE.MeshStandardMaterial({
-            color: 0x38bdf8, // Liquid Oxygen Central Tube
-            metalness: 0.80,
-            roughness: 0.25
-          });
-
-          // Calculate element distribution from nElementsTarget
-          const neTotal = Math.min(Math.max(7, nElementsTarget), 180);
-          const elemR = Math.max(0.0020, Rc * (0.07 / Math.sqrt(neTotal / 19)));
-          const postH = Math.min(Lcyl * 0.18, 0.024);
-
-          // Build ring distribution
-          const ringList = [];
-          if (neTotal <= 12) {
-            ringList.push({ count: 1, radius: 0 });
-            ringList.push({ count: neTotal - 1, radius: Rc * 0.55 });
-          } else if (neTotal <= 25) {
-            ringList.push({ count: 1, radius: 0 });
-            const r1Count = Math.round((neTotal - 1) * 0.35);
-            ringList.push({ count: r1Count, radius: Rc * 0.38 });
-            ringList.push({ count: neTotal - 1 - r1Count, radius: Rc * 0.72 });
-          } else if (neTotal <= 70) {
-            ringList.push({ count: 1, radius: 0 });
-            const rem = neTotal - 1;
-            const c1 = Math.round(rem * 0.18);
-            const c2 = Math.round(rem * 0.35);
-            const c3 = rem - c1 - c2;
-            ringList.push({ count: c1, radius: Rc * 0.28 });
-            ringList.push({ count: c2, radius: Rc * 0.54 });
-            ringList.push({ count: c3, radius: Rc * 0.78 });
-          } else {
-            ringList.push({ count: 1, radius: 0 });
-            const rem = neTotal - 1;
-            const c1 = Math.round(rem * 0.12);
-            const c2 = Math.round(rem * 0.24);
-            const c3 = Math.round(rem * 0.30);
-            const c4 = rem - c1 - c2 - c3;
-            ringList.push({ count: c1, radius: Rc * 0.22 });
-            ringList.push({ count: c2, radius: Rc * 0.44 });
-            ringList.push({ count: c3, radius: Rc * 0.65 });
-            ringList.push({ count: c4, radius: Rc * 0.84 });
-          }
-
-          ringList.forEach(rg => {
-            for (let i = 0; i < rg.count; i++) {
-              const ang = rg.count === 1 ? 0 : (i / rg.count) * 2 * Math.PI;
-              if (ang <= cutawayPhi || cutawayPhi >= 1.99 * Math.PI) {
-                const ex = rg.radius * Math.cos(ang);
-                const ez = rg.radius * Math.sin(ang);
-
-                // 1. Drilled Annular Fuel Orifice Borehole in faceplate
-                const annHole = new THREE.CylinderGeometry(elemR * 1.15, elemR * 1.15, 0.0015, 12);
-                annHole.translate(ex, -0.00075, ez);
-                injectorGroup.add(new THREE.Mesh(annHole, holeMat));
-
-                // 2. Coaxial Outer Sleeve Post
-                const elOuter = new THREE.CylinderGeometry(elemR, elemR, postH, 12);
-                elOuter.translate(ex, -postH / 2, ez);
-                injectorGroup.add(new THREE.Mesh(elOuter, elemMat));
-
-                // 3. Central Oxidizer Post Tube
-                const elInner = new THREE.CylinderGeometry(elemR * 0.48, elemR * 0.48, postH * 1.2, 10);
-                elInner.translate(ex, -postH * 0.6, ez);
-                injectorGroup.add(new THREE.Mesh(elInner, oxPostMat));
-
-                // 4. Central Oxidizer Borehole (dark fluid core)
-                const loxBore = new THREE.CylinderGeometry(elemR * 0.28, elemR * 0.28, postH * 1.25, 8);
-                loxBore.translate(ex, -postH * 0.625, ez);
-                injectorGroup.add(new THREE.Mesh(loxBore, holeMat));
-              }
-            }
-          });
-        }
-        else if (injFamily === 'swirl') {
-          // Centrifugal Swirl Element Array (RD-180 / RD-170)
-          const swirlMat = new THREE.MeshStandardMaterial({
-            color: 0xd97706, // Bronze/Copper Swirl Cavity Cups
-            metalness: 0.75,
-            roughness: 0.25
-          });
-          const neTotal = Math.min(Math.max(6, nElementsTarget), 64);
-          const swirlR = Math.max(0.0035, Rc * (0.12 / Math.sqrt(neTotal / 12)));
-          const swirlH = Math.min(Lcyl * 0.16, 0.022);
-
-          const swirlRings = [];
-          if (neTotal <= 8) {
-            swirlRings.push({ count: 1, radius: 0 });
-            swirlRings.push({ count: neTotal - 1, radius: Rc * 0.55 });
-          } else if (neTotal <= 20) {
-            swirlRings.push({ count: 1, radius: 0 });
-            const c1 = Math.round((neTotal - 1) * 0.4);
-            swirlRings.push({ count: c1, radius: Rc * 0.40 });
-            swirlRings.push({ count: neTotal - 1 - c1, radius: Rc * 0.75 });
-          } else {
-            swirlRings.push({ count: 1, radius: 0 });
-            const rem = neTotal - 1;
-            const c1 = Math.round(rem * 0.25);
-            const c2 = Math.round(rem * 0.40);
-            const c3 = rem - c1 - c2;
-            swirlRings.push({ count: c1, radius: Rc * 0.30 });
-            swirlRings.push({ count: c2, radius: Rc * 0.56 });
-            swirlRings.push({ count: c3, radius: Rc * 0.80 });
-          }
-
-          swirlRings.forEach(rg => {
-            for (let i = 0; i < rg.count; i++) {
-              const ang = rg.count === 1 ? 0 : (i / rg.count) * 2 * Math.PI;
-              if (ang <= cutawayPhi || cutawayPhi >= 1.99 * Math.PI) {
-                const sx = rg.radius * Math.cos(ang);
-                const sz = rg.radius * Math.sin(ang);
-
-                // 1. Drilled Faceplate Recess Cavity Hole
-                const cupHole = new THREE.CylinderGeometry(swirlR * 1.15, swirlR * 1.15, 0.002, 14);
-                cupHole.translate(sx, -0.001, sz);
-                injectorGroup.add(new THREE.Mesh(cupHole, holeMat));
-
-                // 2. Swirl Cup Body
-                const cupGeom = new THREE.CylinderGeometry(swirlR, swirlR * 0.72, swirlH, 14);
-                cupGeom.translate(sx, -swirlH / 2, sz);
-                injectorGroup.add(new THREE.Mesh(cupGeom, swirlMat));
-
-                // 3. Central Vortex Discharge Orifice Hole
-                const dischargeHole = new THREE.CylinderGeometry(swirlR * 0.38, swirlR * 0.38, swirlH * 1.1, 10);
-                dischargeHole.translate(sx, -swirlH / 2, sz);
-                injectorGroup.add(new THREE.Mesh(dischargeHole, holeMat));
-              }
-            }
-          });
-        }
-        else {
-          // Unlike Impinging Doublet Drilled Orifice Hole Array
-          const orifMat = new THREE.MeshStandardMaterial({
-            color: 0x0284c7, // Aerospace Liquid Jet Stream
-            metalness: 0.8,
-            roughness: 0.2
-          });
-          const nPairs = Math.min(Math.max(6, Math.round(nElementsTarget)), 36);
-          for (let i = 0; i < nPairs; i++) {
-            const ang = (i / nPairs) * 2 * Math.PI;
-            if (ang <= cutawayPhi || cutawayPhi >= 1.99 * Math.PI) {
-              const oxX = (Rc * 0.48) * Math.cos(ang);
-              const oxZ = (Rc * 0.48) * Math.sin(ang);
-              const fuelX = (Rc * 0.70) * Math.cos(ang);
-              const fuelZ = (Rc * 0.70) * Math.sin(ang);
-
-              // 1. Drilled Oxidizer Orifice Hole in faceplate
-              const oxHole = new THREE.CylinderGeometry(0.0022, 0.0022, 0.002, 8);
-              oxHole.translate(oxX, -0.001, oxZ);
-              injectorGroup.add(new THREE.Mesh(oxHole, holeMat));
-
-              // 2. Drilled Fuel Orifice Hole in faceplate
-              const fuelHole = new THREE.CylinderGeometry(0.0020, 0.0020, 0.002, 8);
-              fuelHole.translate(fuelX, -0.001, fuelZ);
-              injectorGroup.add(new THREE.Mesh(fuelHole, holeMat));
-
-              // 3. Converging Liquid Jets
-              const oxN = new THREE.CylinderGeometry(0.0012, 0.0012, 0.012, 8);
-              oxN.rotateZ(0.25);
-              oxN.translate(oxX, -0.006, oxZ);
-              injectorGroup.add(new THREE.Mesh(oxN, orifMat));
-
-              const fuelN = new THREE.CylinderGeometry(0.0011, 0.0011, 0.012, 8);
-              fuelN.rotateZ(-0.25);
-              fuelN.translate(fuelX, -0.006, fuelZ);
-              injectorGroup.add(new THREE.Mesh(fuelN, orifMat));
-            }
-          }
-        }
-        engineGroup.add(injectorGroup);
-
-        // =====================================================================
-        // Feature 2: 3D Regenerative Cooling Channel Ribs & Passages
-        // =====================================================================
-        const channelRibGroup = new THREE.Group();
-        const nRibs = Math.min(geom.nch || 80, 96);
-        const ribMat = new THREE.MeshStandardMaterial({
-          color: 0x1e293b, // Dark Milled Coolant Slot Ribs
-          metalness: 0.40,
-          roughness: 0.45
-        });
-        const ribThick = Math.max((geom.tfin_mm || 0.8) * scale, 0.001);
-        const ribLen = Lcyl * 0.85;
-        const ribH = hc * 0.95;
-        const ribR = Rc + tw + ribH / 2;
-
-        for (let rIdx = 0; rIdx < nRibs; rIdx++) {
-          const ang = (rIdx / nRibs) * 2 * Math.PI;
-          if (ang <= cutawayPhi || cutawayPhi >= 1.99 * Math.PI) {
-            const ribGeom = new THREE.BoxGeometry(ribThick, ribLen, ribH);
-            ribGeom.translate(0, -Lcyl * 0.48, ribR);
-            const ribMesh = new THREE.Mesh(ribGeom, ribMat);
-            ribMesh.rotation.y = ang;
-            channelRibGroup.add(ribMesh);
-          }
-        }
-        engineGroup.add(channelRibGroup);
-
-        // =====================================================================
-        // Feature 3: Nozzle Stiffener Ring Bands (Conical vs Bell)
-        // =====================================================================
-        if (geom.nozType === 'conical') {
-          // Conical Nozzle Exit Stiffening Bands
-          const bandMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.7, roughness: 0.3 });
-          [0.35, 0.65, 0.92].forEach(u => {
-            const bx = xThroat + u * Lnoz;
-            const br = Rt + (Re - Rt) * u + tw * 1.5;
-            const bandGeom = new THREE.TorusGeometry(br, tw * 0.6, 8, 48, cutawayPhi);
-            bandGeom.rotateX(Math.PI / 2);
-            bandGeom.translate(0, -bx, 0);
-            engineGroup.add(new THREE.Mesh(bandGeom, bandMat));
-          });
-        }
-
-        // Construct closed solid cross-section polygon wire
-        const solidWire = [];
-        innerPts.forEach(p => solidWire.push(new THREE.Vector2(p.r, -p.x)));
-        outerPts.forEach(p => solidWire.push(new THREE.Vector2(p.r, -p.x)));
-        solidWire.push(new THREE.Vector2(innerPts[0].r, -innerPts[0].x));
-
-        const latheGeom = new THREE.LatheGeometry(solidWire, 72, 0, cutawayPhi);
-        const engineMesh = new THREE.Mesh(latheGeom, pbrMat);
-        engineGroup.add(engineMesh);
-
-        // Section Cut Capping Faces (Mathematically aligned to lathe revolution boundaries)
-        if (cutawayPhi < 1.99 * Math.PI && window.THREE.ShapeUtils) {
-          try {
-            const faces = THREE.ShapeUtils.triangulateShape(solidWire, []);
-            // Cap 1 at phi = 0
-            const pos1 = [];
-            faces.forEach(f => {
-              f.forEach(idx => {
-                pos1.push(0, solidWire[idx].y, solidWire[idx].x);
-              });
-            });
-            const capGeom1 = new THREE.BufferGeometry();
-            capGeom1.setAttribute('position', new THREE.Float32BufferAttribute(pos1, 3));
-            capGeom1.computeVertexNormals();
-            const cap1 = new THREE.Mesh(capGeom1, sectionCapMat);
-            engineGroup.add(cap1);
-
-            // Cap 2 at phi = cutawayPhi
-            const pos2 = [];
-            faces.forEach(f => {
-              for (let i = f.length - 1; i >= 0; i--) {
-                const idx = f[i];
-                pos2.push(solidWire[idx].x * Math.sin(cutawayPhi), solidWire[idx].y, solidWire[idx].x * Math.cos(cutawayPhi));
-              }
-            });
-            const capGeom2 = new THREE.BufferGeometry();
-            capGeom2.setAttribute('position', new THREE.Float32BufferAttribute(pos2, 3));
-            capGeom2.computeVertexNormals();
-            const cap2 = new THREE.Mesh(capGeom2, sectionCapMat);
-            engineGroup.add(cap2);
-          } catch (eCap) {
-            console.warn('Error constructing section cut caps:', eCap);
-          }
-        }
-
-        if (cadShadingMode === 'edges') {
+if (cadShadingMode === 'edges') {
           const edges = new THREE.EdgesGeometry(latheGeom, 25);
           const edgeLine = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x0f172a, linewidth: 1.2 }));
           engineGroup.add(edgeLine);
