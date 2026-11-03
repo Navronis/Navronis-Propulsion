@@ -433,6 +433,34 @@
       .hero h1 { font-size: 36px; }
       .viz-section { grid-template-columns: 1fr; }
     }
+  
+    .btn-sw-hud {
+      background: rgba(15, 23, 42, 0.88);
+      color: #f1f5f9;
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: 5px;
+      padding: 5px 10px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      backdrop-filter: blur(4px);
+      transition: all 0.15s ease;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+    .btn-sw-hud:hover {
+      background: rgba(56, 189, 248, 0.25);
+      border-color: #38bdf8;
+      color: #38bdf8;
+      transform: translateY(-1px);
+    }
+    .btn-sw-hud:active {
+      transform: translateY(0);
+    }
+
   </style>
 </head>
 <body>
@@ -1050,11 +1078,11 @@
         </div>
 
         <!-- Mode 1: 3D CAD Orbit WebGL Viewport -->
-        <div id="view-3d-wrapper" style="position: relative; width: 100%; height: 440px; background: radial-gradient(circle at 50% 45%, #1e293b 0%, #090e1a 100%); border-radius: 10px; border: 1px solid rgba(56, 189, 248, 0.35); overflow: hidden; cursor: grab;">
+        <div id="view-3d-wrapper" style="position: relative; width: 100%; height: 540px; min-height: 520px; background: radial-gradient(circle at 50% 45%, #1e293b 0%, #090e1a 100%); border-radius: 10px; border: 1px solid rgba(56, 189, 248, 0.35); overflow: hidden; cursor: grab;">
           <canvas id="canvas-3d-cad" style="width: 100%; height: 100%; display: block;"></canvas>
 
           <!-- Live CAD Parameters & Computed Dimensions Banner -->
-          <div id="cad-live-drivers-ribbon" style="position: absolute; top: 10px; left: 12px; right: 12px; background: rgba(15,23,42,0.85); border: 1px solid rgba(56,189,248,0.25); border-radius: 6px; padding: 6px 12px; pointer-events: none; font-family: var(--font-mono); font-size: 11px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; z-index: 5;">
+          <div id="cad-live-drivers-ribbon" style="position: absolute; top: 10px; left: 12px; right: 12px; background: rgba(15,23,42,0.88); border: 1px solid rgba(56,189,248,0.25); border-radius: 6px; padding: 6px 12px; pointer-events: none; font-family: var(--font-mono); font-size: 11px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; z-index: 5;">
             <div>
               <span style="color: #38bdf8; font-weight: 700;">⚡ CAD DESIGN INPUTS:</span>
               <span id="ribbon-drivers" style="color: #e2e8f0;">Thrust: 30 kN | Pc: 120 bar | ε: 30.0 | L*: 1.0 m</span>
@@ -1066,11 +1094,34 @@
               <span id="ribbon-cantera-badge" style="color: #38bdf8; font-weight: 700;">🔬 Cantera GRI-Mech 3.0 Verified (&lt;0.2% c*)</span>
             </div>
           </div>
+
+          <!-- SolidWorks Floating CAD HUD Navigation Toolbar (Top-Right) -->
+          <div id="solidworks-hud-bar" style="position: absolute; top: 48px; right: 12px; display: flex; gap: 5px; flex-wrap: wrap; z-index: 10;">
+            <button class="btn-sw-hud" onclick="focusCadFeature('fit')" title="Zoom to Fit All (Shortcut: F)">⛶ Fit All (F)</button>
+            <button class="btn-sw-hud" onclick="focusCadFeature('injector')" title="Focus on LOX/GOX Isolated Injector Head & Bulkhead (Shortcut: 1)">🎯 Injector Head (1)</button>
+            <button class="btn-sw-hud" onclick="focusCadFeature('igniter')" title="Focus on Spark Torch Igniter & Penetration (Shortcut: 2)">⚡ Spark Igniter (2)</button>
+            <button class="btn-sw-hud" onclick="focusCadFeature('throat')" title="Focus on Throat & Milled Regen Channels (Shortcut: 3)">🔬 Throat &amp; Regen (3)</button>
+            <button class="btn-sw-hud" onclick="zoomCadStep(-1)" title="Step Zoom In (Shortcut: +)">➕</button>
+            <button class="btn-sw-hud" onclick="zoomCadStep(1)" title="Step Zoom Out (Shortcut: -)">➖</button>
+          </div>
           
-          <!-- SolidWorks / NX Style 3D Orientation Triad (Bottom-Left) -->
-          <div style="position: absolute; bottom: 12px; left: 14px; background: rgba(3,7,18,0.85); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 8px 12px; pointer-events: none; text-align: left; font-family: var(--font-mono); font-size: 11px; line-height: 1.4;">
-            <div style="font-weight: 700; color: #94a3b8; margin-bottom: 2px;">DATUM ORIGIN [0, 0, 0]</div>
-            <div style="display: flex; gap: 8px;">
+          <!-- SolidWorks Assembly Components & Propellant Isolation Legend (Bottom-Left) -->
+          <div id="solidworks-assembly-legend" style="position: absolute; bottom: 12px; left: 14px; background: rgba(3,7,18,0.92); border: 1px solid rgba(56,189,248,0.30); border-radius: 6px; padding: 8px 12px; pointer-events: none; text-align: left; font-family: var(--font-mono); font-size: 10.5px; line-height: 1.45; z-index: 5;">
+            <div style="font-weight: 700; color: #94a3b8; margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+              <span>SOLIDWORKS ASSEMBLY COMPONENTS</span>
+              <span style="font-size: 9.5px; color: #22c55e; border: 1px solid rgba(34,197,94,0.4); padding: 1px 5px; border-radius: 3px; font-weight: 700;">ISOLATED MANIFOLDS</span>
+            </div>
+            <div style="display: grid; grid-template-columns: auto auto; gap: 3px 14px; font-size: 10px;">
+              <div><span style="color: #2563eb; font-weight: 900;">●</span> LOX Dome (Top Axial Feed)</div>
+              <div><span style="color: #cbd5e1; font-weight: 900;">●</span> Inconel Divider Bulkhead</div>
+              <div><span style="color: #d97706; font-weight: 900;">●</span> GOX Plenum (Side Radial Feed)</div>
+              <div><span style="color: #94a3b8; font-weight: 900;">●</span> Faceplate &amp; Coaxial Posts</div>
+              <div><span style="color: #06b6d4; font-weight: 900;">●</span> Spark Igniter &amp; Flame Core</div>
+              <div><span style="color: #38bdf8; font-weight: 900;">●</span> Combustor Mixing Plumes (y &lt; 0)</div>
+              <div><span style="color: #475569; font-weight: 900;">●</span> Milled Regen Cooling Ribs</div>
+              <div><span style="color: #64748b; font-weight: 900;">●</span> Structural Outer Jacket</div>
+            </div>
+            <div style="margin-top: 5px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; gap: 8px; font-size: 9.5px;">
               <span style="color: #ef4444; font-weight: 700;">+X Thrust Axis [℄]</span>
               <span style="color: #22c55e; font-weight: 700;">+Y Radial Vert</span>
               <span style="color: #38bdf8; font-weight: 700;">+Z Lateral</span>
@@ -2873,14 +2924,16 @@
       if (activeBtn) activeBtn.classList.add('active');
 
       if (!camTarget) camTarget = new THREE.Vector3(0, 0, 0);
-      camTarget.set(0, 0, 0);
 
       const geom = latestEngineGeometry;
       const totalL = geom ? (geom.lcyl_mm + geom.lconv_mm + geom.lnoz_mm) * 0.001 : 0.52;
       const maxDiam = geom ? Math.max(geom.dc_mm, geom.de_mm) * 0.001 : 0.24;
       const baseDist = Math.max(0.65, Math.max(totalL, maxDiam) * 1.45);
       const Lcyl = geom ? (geom.lcyl_mm * 0.001) : 0.20;
+      const Lconv = geom ? (geom.lconv_mm * 0.001) : 0.05;
       const Rc = geom ? (geom.dc_mm * 0.0005) : 0.06;
+
+      window.cadHasUserPannedOrZoomed = false;
 
       if (preset === 'iso') {
         camTarget.set(0, 0, 0);
@@ -2888,7 +2941,6 @@
         camPhi = 1.15;
         camDist = baseDist;
       } else if (preset === 'front') {
-        // True axial view along +X thrust axis looking into nozzle exit and throat
         camTarget.set(0, 0, 0);
         camTheta = Math.PI / 2;
         camPhi = Math.PI / 2;
@@ -2899,18 +2951,70 @@
         camPhi = 0.02;
         camDist = baseDist;
       } else if (preset === 'throat') {
-        camTarget.set(0, 0, 0);
+        const throatWorldX = Lcyl + Lconv - totalL / 2.0;
+        camTarget.set(throatWorldX, 0, 0);
         camTheta = 0.55;
         camPhi = 1.25;
-        camDist = Math.max(0.25, baseDist * 0.42);
+        camDist = Math.max(0.14, Rc * 3.2);
       } else if (preset === 'inj') {
-        // Focus directly on injector face plate and elements at x = -totalL / 2
         const injX = -totalL / 2.0;
-        camTarget.set(injX + Lcyl * 0.35, 0, 0);
+        camTarget.set(injX - 0.015, 0, 0);
         camTheta = 0.65;
         camPhi = 1.35;
-        camDist = Math.max(0.20, (Rc * 2.8));
+        camDist = Math.max(0.14, Rc * 3.4);
       }
+      updateCamera();
+    }
+
+    function focusCadFeature(feature) {
+      if (!latestEngineGeometry || !threeCamera) return;
+      const geom = latestEngineGeometry;
+      const scale = 0.001;
+      const totalL = (geom.lcyl_mm + geom.lconv_mm + geom.lnoz_mm) * scale;
+      const Lcyl = geom.lcyl_mm * scale;
+      const Lconv = geom.lconv_mm * scale;
+      const Rc = (geom.dc_mm / 2) * scale;
+      const Rt = (geom.dt_mm / 2) * scale;
+
+      window.cadHasUserPannedOrZoomed = false;
+
+      if (feature === 'fit') {
+        camTarget.set(0, 0, 0);
+        camDist = Math.max(0.65, Math.max(totalL, (geom.de_mm || 200) * scale) * 1.45);
+        camTheta = 0.785;
+        camPhi = 1.15;
+      } else if (feature === 'injector') {
+        // Focus right on the dual-propellant manifold and faceplate
+        const injWorldX = -totalL / 2.0;
+        camTarget.set(injWorldX - 0.015, 0, 0);
+        camDist = Math.max(0.12, Rc * 3.2);
+        camTheta = 0.65;
+        camPhi = 1.25;
+      } else if (feature === 'igniter') {
+        // Focus right on the spark torch igniter at y = -Lcyl * 0.16, 45 deg azimuth
+        const ignWorldX = Lcyl * 0.16 - totalL / 2.0;
+        const phiIgn = Math.PI / 4;
+        const ignY = Rc * 0.65 * Math.sin(phiIgn);
+        const ignZ = Rc * 0.65 * Math.cos(phiIgn);
+        camTarget.set(ignWorldX, ignY, ignZ);
+        camDist = Math.max(0.08, Rc * 2.0);
+        camTheta = 0.45;
+        camPhi = 1.10;
+      } else if (feature === 'throat') {
+        // Focus right on throat turnaround and milled cooling channels
+        const throatWorldX = Lcyl + Lconv - totalL / 2.0;
+        camTarget.set(throatWorldX, 0, 0);
+        camDist = Math.max(0.12, Rt * 5.0);
+        camTheta = 0.55;
+        camPhi = 1.25;
+      }
+      updateCamera();
+    }
+
+    function zoomCadStep(dir) {
+      window.cadHasUserPannedOrZoomed = true;
+      const factor = dir < 0 ? 0.72 : 1.38;
+      camDist = Math.max(0.01, Math.min(25.0, camDist * factor));
       updateCamera();
     }
 
@@ -3021,10 +3125,11 @@
 
       const container = document.getElementById('view-3d-wrapper');
       const width = container.clientWidth || 800;
-      const height = container.clientHeight || 430;
+      const height = container.clientHeight || 540;
 
       threeScene = new THREE.Scene();
-      threeCamera = new THREE.PerspectiveCamera(36, width / height, 0.02, 50);
+      // Near plane 0.001m (1mm) allows crystal-clear micro-inspection without clipping
+      threeCamera = new THREE.PerspectiveCamera(36, width / height, 0.001, 100);
       camTarget = new THREE.Vector3(0, 0, 0);
 
       try {
@@ -3069,10 +3174,13 @@
 
       updateCamera();
 
-      // Precision CAD Mouse Orbit, Pan, and Zoom Controls
+      // Precision CAD Mouse Orbit, Pan, and Zoom Controls (SolidWorks / NX UX Paradigm)
       canvas.addEventListener('mousedown', (e) => {
-        if (e.button === 0) isDragging = true;
-        else if (e.button === 2 || e.button === 1) isPanning = true;
+        if (e.button === 0 || e.button === 1) isDragging = true;
+        if (e.button === 2 || (e.button === 1 && e.ctrlKey)) {
+          isPanning = true;
+          isDragging = false;
+        }
         prevMousePos = { x: e.clientX, y: e.clientY };
       });
 
@@ -3086,27 +3194,46 @@
       // Bind mousemove to window so orbit/pan continues smoothly outside canvas bounds
       window.addEventListener('mousemove', (e) => {
         if (!isDragging && !isPanning) return;
+        window.cadHasUserPannedOrZoomed = true;
         const dx = e.clientX - prevMousePos.x;
         const dy = e.clientY - prevMousePos.y;
         prevMousePos = { x: e.clientX, y: e.clientY };
 
         if (isDragging) {
           camTheta -= dx * 0.007;
-          camPhi = Math.max(0.08, Math.min(Math.PI - 0.08, camPhi - dy * 0.007));
-        } else if (isPanning) {
-          const panSpeed = camDist * 0.0015;
-          camTarget.x -= dx * panSpeed;
-          camTarget.y += dy * panSpeed;
+          camPhi = Math.max(0.05, Math.min(Math.PI - 0.05, camPhi - dy * 0.007));
+        } else if (isPanning && threeCamera) {
+          // True SolidWorks Screen-Relative Camera Panning
+          const forward = new THREE.Vector3().subVectors(camTarget, threeCamera.position).normalize();
+          const right = new THREE.Vector3().crossVectors(forward, threeCamera.up).normalize();
+          const up = new THREE.Vector3().crossVectors(right, forward).normalize();
+          const panFactor = camDist * 0.0013;
+          camTarget.addScaledVector(right, -dx * panFactor);
+          camTarget.addScaledVector(up, dy * panFactor);
         }
         updateCamera();
       });
 
+      // SolidWorks-style smooth wheel zoom with zoom-to-cursor
       canvas.addEventListener('wheel', (e) => {
         e.preventDefault();
-        // Safe exponential zoom: immune to negative inversions or 0.05m sticky wall trap
-        const zoomDelta = Math.sign(e.deltaY) * Math.min(Math.abs(e.deltaY), 120);
-        const zoomFactor = Math.exp(zoomDelta * 0.0015);
-        camDist = Math.max(0.08, Math.min(18.0, camDist * zoomFactor));
+        window.cadHasUserPannedOrZoomed = true;
+        const zoomDelta = Math.sign(e.deltaY) * Math.min(Math.abs(e.deltaY), 100);
+        const zoomFactor = Math.exp(zoomDelta * 0.0018);
+        const newDist = Math.max(0.012, Math.min(25.0, camDist * zoomFactor));
+
+        // Shift camTarget towards mouse cursor when scrolling in
+        if (zoomDelta < 0 && canvas) {
+          const rect = canvas.getBoundingClientRect();
+          const mouseX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+          const mouseY = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+          const vector = new THREE.Vector3(mouseX, mouseY, 0.5);
+          vector.unproject(threeCamera);
+          const rayDir = vector.sub(threeCamera.position).normalize();
+          const shift = (camDist - newDist) * 0.38;
+          camTarget.addScaledVector(rayDir, shift);
+        }
+        camDist = newDist;
         updateCamera();
       }, { passive: false });
 
@@ -3122,21 +3249,41 @@
       });
       canvas.addEventListener('touchmove', (e) => {
         if (isDragging && e.touches.length === 1) {
+          window.cadHasUserPannedOrZoomed = true;
           const dx = e.touches[0].clientX - prevMousePos.x;
           const dy = e.touches[0].clientY - prevMousePos.y;
           prevMousePos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
           camTheta -= dx * 0.007;
-          camPhi = Math.max(0.08, Math.min(Math.PI - 0.08, camPhi - dy * 0.007));
+          camPhi = Math.max(0.05, Math.min(Math.PI - 0.05, camPhi - dy * 0.007));
           updateCamera();
         } else if (e.touches.length === 2) {
+          window.cadHasUserPannedOrZoomed = true;
           const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
           const factor = touchStartDist / Math.max(dist, 1);
-          camDist = Math.max(0.05, Math.min(18.0, camDist * factor));
+          camDist = Math.max(0.015, Math.min(25.0, camDist * factor));
           touchStartDist = dist;
           updateCamera();
         }
       });
       canvas.addEventListener('touchend', () => { isDragging = false; });
+
+      // SolidWorks CAD Keyboard Navigation Shortcuts
+      window.addEventListener('keydown', (e) => {
+        if (['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+        if (e.key === 'f' || e.key === 'F') {
+          focusCadFeature('fit');
+        } else if (e.key === '1') {
+          focusCadFeature('injector');
+        } else if (e.key === '2') {
+          focusCadFeature('igniter');
+        } else if (e.key === '3') {
+          focusCadFeature('throat');
+        } else if (e.key === '+' || e.key === '=') {
+          zoomCadStep(-1);
+        } else if (e.key === '-' || e.key === '_') {
+          zoomCadStep(1);
+        }
+      });
 
       // Drag and drop listener for loading any local STL
       const wrapper = document.getElementById('view-3d-wrapper');
@@ -3457,28 +3604,90 @@
         cavityLight.position.set(0, -Lcyl * 0.5, 0);
         engineGroup.add(cavityLight);
 
-        // Structural Injector Dome Face Plate at y = 0
-        const injDomeMat = new THREE.MeshStandardMaterial({
-          color: 0x334155,
-          metalness: 0.65,
+        // Precise SolidWorks Aerospace Multi-Alloy Component Palette
+        const injFaceMat = new THREE.MeshStandardMaterial({
+          color: 0x334155, // Machined Dark Tool Steel Faceplate
+          metalness: 0.70,
+          roughness: 0.25,
+          side: THREE.DoubleSide
+        });
+
+        const goxPlenumMat = new THREE.MeshStandardMaterial({
+          color: 0xb45309, // Heat-Treated Amber-Bronze GOX Manifold Housing
+          metalness: 0.75,
           roughness: 0.28,
           side: THREE.DoubleSide
         });
-        const domeGeom = new THREE.CylinderGeometry(Rc * 0.99, Rc * 0.99, flangeThick * 0.7, 48, 1, false, 0, cutawayPhi);
-        domeGeom.translate(0, flangeThick * 0.35, 0);
-        injectorGroup.add(new THREE.Mesh(domeGeom, injDomeMat));
 
-        // Injector Orifice Borehole Material (True drilled holes into faceplate)
+        const dividerMat = new THREE.MeshStandardMaterial({
+          color: 0xe2e8f0, // Polished High-Nickel Inconel Bulkhead (Hermetic Isolation Barrier)
+          metalness: 0.88,
+          roughness: 0.15,
+          side: THREE.DoubleSide
+        });
+
+        const loxDomeMat = new THREE.MeshStandardMaterial({
+          color: 0x1d4ed8, // Aerospace Electric Blue Titanium LOX Dome
+          metalness: 0.82,
+          roughness: 0.22,
+          side: THREE.DoubleSide
+        });
+
+        const boltMat = new THREE.MeshStandardMaterial({
+          color: 0x94a3b8,
+          metalness: 0.80,
+          roughness: 0.20
+        });
+
         const holeMat = new THREE.MeshStandardMaterial({
           color: 0x090d16,
           roughness: 0.95,
           metalness: 0.10
         });
 
-        // Injector Flange Perimeter Bolting Studs (Aligned to Lathe Cut Coordinate Frame)
+        const loxFluidMat = new THREE.MeshStandardMaterial({
+          color: 0x0284c7, // Cryogenic Liquid Oxygen Stream (Blue)
+          roughness: 0.15,
+          metalness: 0.65
+        });
+
+        const goxStreamMat = new THREE.MeshStandardMaterial({
+          color: 0xf59e0b, // Warm Gaseous Fuel/GOX Stream (Gold/Amber)
+          roughness: 0.25,
+          metalness: 0.60
+        });
+
+        const flameMixMat = new THREE.MeshStandardMaterial({
+          color: 0x38bdf8,
+          emissive: 0x2563eb,
+          emissiveIntensity: 0.9,
+          roughness: 0.2,
+          transparent: true,
+          opacity: 0.72
+        });
+
+        // Vertical Layer Elevations for Dual Isolated Manifolds
+        const H_face = flangeThick * 0.70;
+        const H_gox = Math.max(0.014, Rc * 0.48);
+        const H_div = Math.max(0.005, flangeThick * 0.40);
+        const H_lox = Math.max(0.018, Rc * 0.68);
+
+        const y_face_top = H_face;
+        const y_gox_bot = y_face_top;
+        const y_gox_top = y_gox_bot + H_gox;
+        const y_div_bot = y_gox_top;
+        const y_div_top = y_div_bot + H_div;
+        const y_lox_bot = y_div_top;
+        const y_lox_top = y_lox_bot + H_lox;
+
+        // 1. Structural Injector Faceplate (Structural flange from y = 0 to y_face_top)
+        const faceGeom = new THREE.CylinderGeometry(Rc * 0.99, Rc * 0.99, H_face, 48, 1, false, 0, cutawayPhi);
+        faceGeom.translate(0, H_face / 2, 0);
+        injectorGroup.add(new THREE.Mesh(faceGeom, injFaceMat));
+
+        // Injector Flange Perimeter Bolting Studs
         const nBolts = Math.max(8, Math.min(24, Math.round(Rc * 160)));
         const boltR = Rc * 1.12;
-        const boltMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.8, roughness: 0.2 });
         for (let b = 0; b < nBolts; b++) {
           const ang = (b / nBolts) * 2 * Math.PI;
           if (ang <= cutawayPhi || cutawayPhi >= 1.99 * Math.PI) {
@@ -3488,46 +3697,40 @@
           }
         }
 
-        // External Propellant Manifolds & Domes (Aligned with 360 / 180 / 90 section cut axis)
-        if (injFamily === 'pintle') {
-          const extLoxDome = new THREE.CylinderGeometry(Rc * 0.42, Rc * 0.42, flangeThick * 2.2, 24, 1, false, 0, cutawayPhi);
-          extLoxDome.translate(0, flangeThick * 1.4, 0);
-          injectorGroup.add(new THREE.Mesh(extLoxDome, boltMat));
-        } else if (injFamily === 'coaxial') {
-          const domeCapGeom = new THREE.SphereGeometry(Rc * 0.95, 24, 16, Math.PI / 2, cutawayPhi, 0, Math.PI / 2);
-          domeCapGeom.translate(0, flangeThick * 0.7, 0);
-          injectorGroup.add(new THREE.Mesh(domeCapGeom, injDomeMat));
-        } else if (injFamily === 'swirl') {
-          const torus1 = new THREE.TorusGeometry(Rc * 1.05, flangeThick * 0.45, 8, 36, cutawayPhi);
-          torus1.rotateX(-Math.PI / 2);
-          torus1.rotateY(-Math.PI / 2);
-          torus1.translate(0, flangeThick * 0.8, 0);
-          injectorGroup.add(new THREE.Mesh(torus1, boltMat));
+        // 2. Lower Manifold: Fuel / GOX Plenum Housing (Heat-Treated Amber-Bronze Alloy)
+        const goxHousingGeom = new THREE.CylinderGeometry(Rc * 0.98, Rc * 0.98, H_gox, 48, 1, false, 0, cutawayPhi);
+        goxHousingGeom.translate(0, y_gox_bot + H_gox / 2, 0);
+        injectorGroup.add(new THREE.Mesh(goxHousingGeom, goxPlenumMat));
 
-          const torus2 = new THREE.TorusGeometry(Rc * 0.65, flangeThick * 0.35, 8, 32, cutawayPhi);
-          torus2.rotateX(-Math.PI / 2);
-          torus2.rotateY(-Math.PI / 2);
-          torus2.translate(0, flangeThick * 1.4, 0);
-          injectorGroup.add(new THREE.Mesh(torus2, boltMat));
-        } else {
-          const distPlate = new THREE.CylinderGeometry(Rc * 0.85, Rc * 0.85, flangeThick * 1.2, 24, 1, false, 0, cutawayPhi);
-          distPlate.translate(0, flangeThick * 0.9, 0);
-          injectorGroup.add(new THREE.Mesh(distPlate, boltMat));
-        }
+        // 3. Interpropellant Structural Divider Bulkhead (Hermetic Inconel Seal Plate)
+        // Physically guarantees propellants NEVER come into contact inside the head!
+        const divBulkheadGeom = new THREE.CylinderGeometry(Rc * 0.985, Rc * 0.985, H_div, 48, 1, false, 0, cutawayPhi);
+        divBulkheadGeom.translate(0, y_div_bot + H_div / 2, 0);
+        injectorGroup.add(new THREE.Mesh(divBulkheadGeom, dividerMat));
 
-        // =====================================================================
-        // Universal Dual-Propellant Injector Head Plumbing Architecture
-        // 1. Central Axial LOX Inlet Pipe with Open Entrance Borehole (Top)
-        // 2. Radial Side GOX / Fuel Gas Pipe with Open Entrance Borehole (Side)
-        // =====================================================================
+        // Seal ring groove on outer rim of divider bulkhead
+        const sealRingGeom = new THREE.TorusGeometry(Rc * 0.986, 0.0008, 6, 36, cutawayPhi);
+        sealRingGeom.rotateX(-Math.PI / 2);
+        sealRingGeom.rotateY(-Math.PI / 2);
+        sealRingGeom.translate(0, y_div_bot + H_div / 2, 0);
+        injectorGroup.add(new THREE.Mesh(sealRingGeom, holeMat));
+
+        // 4. Upper Manifold: LOX Dome Cavity (Aerospace Titanium Electric Blue)
+        const loxDomeGeom = new THREE.SphereGeometry(Rc * 0.96, 32, 18, Math.PI / 2, cutawayPhi, 0, Math.PI / 2);
+        loxDomeGeom.scale(1.0, H_lox / (Rc * 0.96), 1.0);
+        loxDomeGeom.translate(0, y_lox_bot, 0);
+        injectorGroup.add(new THREE.Mesh(loxDomeGeom, loxDomeMat));
+
+        // 5. Dual-Propellant Injector Head Plumbing Architecture
+        // Central Axial LOX Inlet Pipe feeds directly into the roof of the Upper LOX Dome
         const loxPipeR = Math.max(0.008, Rc * 0.28);
         const loxBoreR = loxPipeR * 0.72;
         const loxH = flangeThick * 2.2;
-        const loxY0 = flangeThick * 0.7 + (injFamily === 'coaxial' ? Rc * 0.95 : (injFamily === 'pintle' ? flangeThick * 2.2 : (injFamily === 'swirl' ? flangeThick * 1.6 : flangeThick * 1.2)));
+        const loxY0 = y_lox_top;
 
         const loxPipeGeom = new THREE.CylinderGeometry(loxPipeR, loxPipeR, loxH, 24, 1, false, 0, cutawayPhi);
         loxPipeGeom.translate(0, loxY0 + loxH / 2, 0);
-        injectorGroup.add(new THREE.Mesh(loxPipeGeom, boltMat));
+        injectorGroup.add(new THREE.Mesh(loxPipeGeom, loxDomeMat));
 
         const loxBoreGeom = new THREE.CylinderGeometry(loxBoreR, loxBoreR, loxH * 1.02, 24, 1, false, 0, cutawayPhi);
         loxBoreGeom.translate(0, loxY0 + loxH / 2, 0);
@@ -3546,22 +3749,22 @@
           }
         }
 
-        const loxFluidMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.15, metalness: 0.65 });
         const loxFluidRing = new THREE.CylinderGeometry(loxBoreR * 0.98, loxBoreR * 0.98, 0.0015, 20, 1, false, 0, cutawayPhi);
         loxFluidRing.translate(0, loxY0 + loxH, 0);
         injectorGroup.add(new THREE.Mesh(loxFluidRing, loxFluidMat));
 
+        // Side Radial GOX Pipe feeds directly into the Lower GOX Plenum Housing
         const goxPipeR = Math.max(0.006, Rc * 0.18);
         const goxBoreR = goxPipeR * 0.70;
         const goxLen = Rc * 0.85;
-        const goxY = flangeThick * 0.85;
+        const goxY = y_gox_bot + H_gox * 0.50;
         const goxX0 = Rc * 0.88;
         const goxX1 = goxX0 + goxLen;
 
         const goxPipeGeom = new THREE.CylinderGeometry(goxPipeR, goxPipeR, goxLen, 20);
         goxPipeGeom.rotateZ(Math.PI / 2);
         goxPipeGeom.translate(goxX0 + goxLen / 2, goxY, 0);
-        injectorGroup.add(new THREE.Mesh(goxPipeGeom, boltMat));
+        injectorGroup.add(new THREE.Mesh(goxPipeGeom, goxPlenumMat));
 
         const goxBossGeom = new THREE.CylinderGeometry(goxPipeR * 1.45, goxPipeR * 1.45, flangeThick * 0.5, 18);
         goxBossGeom.rotateZ(Math.PI / 2);
@@ -3585,13 +3788,12 @@
         goxHoleGeom.translate(goxX1 + 0.0005, goxY, 0);
         injectorGroup.add(new THREE.Mesh(goxHoleGeom, holeMat));
 
-        const goxStreamMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.25, metalness: 0.6 });
         const goxStream = new THREE.CylinderGeometry(goxBoreR * 0.95, goxBoreR * 0.95, 0.001, 16);
         goxStream.rotateZ(Math.PI / 2);
         goxStream.translate(goxX1 - 0.002, goxY, 0);
         injectorGroup.add(new THREE.Mesh(goxStream, goxStreamMat));
 
-        // Distinct Injector Element Geometry by Family:
+        // Distinct Injector Element Geometry with In-Chamber Mixing:
         if (injFamily === 'pintle') {
           const pintleShaftR = Math.max(0.004, Rc * 0.18);
           const pintleLen = Math.min(Lcyl * 0.48, 0.08);
@@ -3600,6 +3802,11 @@
             metalness: 0.85,
             roughness: 0.18
           });
+
+          // Feed passage from LOX dome down through divider bulkhead
+          const pintleFeedTube = new THREE.CylinderGeometry(pintleShaftR * 0.8, pintleShaftR * 0.8, y_div_top, 20);
+          pintleFeedTube.translate(0, y_div_top / 2, 0);
+          injectorGroup.add(new THREE.Mesh(pintleFeedTube, loxFluidMat));
 
           const centralHole = new THREE.CylinderGeometry(pintleShaftR * 1.8, pintleShaftR * 1.8, 0.0015, 24);
           centralHole.translate(0, -0.0005, 0);
@@ -3610,6 +3817,7 @@
           annSlot.translate(0, -0.001, 0);
           injectorGroup.add(new THREE.Mesh(annSlot, holeMat));
 
+          // Shaft extending down into combustion chamber
           const shaftGeom = new THREE.CylinderGeometry(pintleShaftR, pintleShaftR, pintleLen, 24);
           shaftGeom.translate(0, -pintleLen / 2, 0);
           injectorGroup.add(new THREE.Mesh(shaftGeom, pintleMat));
@@ -3634,20 +3842,25 @@
             }
           }
 
+          // In-Combustor Mixing Cone (Radial LOX fan meets axial GOX stream)
+          const pintleMixCone = new THREE.ConeGeometry(Rc * 0.85, pintleLen * 0.75, 24, 1, true);
+          pintleMixCone.translate(0, -pintleLen * 0.65, 0);
+          injectorGroup.add(new THREE.Mesh(pintleMixCone, flameMixMat));
+
           const sleeveGeom = new THREE.CylinderGeometry(pintleShaftR * 1.5, pintleShaftR * 1.5, flangeThick * 0.5, 24);
           sleeveGeom.translate(0, -flangeThick * 0.25, 0);
           injectorGroup.add(new THREE.Mesh(sleeveGeom, boltMat));
         }
         else if (injFamily === 'coaxial') {
           const elemMat = new THREE.MeshStandardMaterial({
-            color: 0xe2e8f0,
-            metalness: 0.72,
+            color: 0xf59e0b, // Brass/Gold Outer Annular GOX Sleeve
+            metalness: 0.82,
             roughness: 0.22
           });
           const oxPostMat = new THREE.MeshStandardMaterial({
-            color: 0x38bdf8,
-            metalness: 0.80,
-            roughness: 0.25
+            color: 0x38bdf8, // Stainless Inner LOX Tube (Electric Blue)
+            metalness: 0.85,
+            roughness: 0.20
           });
 
           const neTotal = Math.min(Math.max(7, nElementsTarget), 180);
@@ -3692,21 +3905,45 @@
                 const ex = rg.radius * Math.sin(ang);
                 const ez = rg.radius * Math.cos(ang);
 
-                const annHole = new THREE.CylinderGeometry(elemR * 1.15, elemR * 1.15, 0.0015, 12);
+                // A. Upper LOX Dome Intake Orifice in Divider Bulkhead
+                const loxIntakeHole = new THREE.CylinderGeometry(elemR * 0.45, elemR * 0.45, H_div * 1.05, 10);
+                loxIntakeHole.translate(ex, y_div_bot + H_div / 2, ez);
+                injectorGroup.add(new THREE.Mesh(loxIntakeHole, holeMat));
+
+                // B. Sealed Stainless Inner LOX Feed Tube
+                // Extends from Upper LOX floor (y_div_top) completely through GOX plenum down to faceplate exit (y = 0)
+                const tubeLen = y_div_top;
+                const innerTube = new THREE.CylinderGeometry(elemR * 0.45, elemR * 0.45, tubeLen, 10);
+                innerTube.translate(ex, tubeLen / 2, ez);
+                injectorGroup.add(new THREE.Mesh(innerTube, oxPostMat));
+
+                // C. Outer GOX Annular Sleeve in Lower Plenum (draws GOX from plenum, sleeves tube down to faceplate)
+                const sleeveLen = y_gox_top;
+                const outerSleeve = new THREE.CylinderGeometry(elemR * 0.95, elemR * 0.95, sleeveLen, 12);
+                outerSleeve.translate(ex, sleeveLen / 2, ez);
+                injectorGroup.add(new THREE.Mesh(outerSleeve, elemMat));
+
+                // D. Orifice Boreholes in Faceplate (at y = 0)
+                const annHole = new THREE.CylinderGeometry(elemR * 1.05, elemR * 1.05, 0.0015, 12);
                 annHole.translate(ex, -0.00075, ez);
                 injectorGroup.add(new THREE.Mesh(annHole, holeMat));
 
-                const elOuter = new THREE.CylinderGeometry(elemR, elemR, postH, 12);
-                elOuter.translate(ex, -postH / 2, ez);
-                injectorGroup.add(new THREE.Mesh(elOuter, elemMat));
+                // E. COMBUSTION CHAMBER MIXING ZONE (y < 0, INSIDE COMBUSTOR ONLY!)
+                // 1) Central Liquid LOX Core Jet (Axial Core)
+                const loxJet = new THREE.CylinderGeometry(elemR * 0.32, elemR * 0.28, postH * 1.2, 8);
+                loxJet.translate(ex, -postH * 0.60, ez);
+                injectorGroup.add(new THREE.Mesh(loxJet, loxFluidMat));
 
-                const elInner = new THREE.CylinderGeometry(elemR * 0.48, elemR * 0.48, postH * 1.2, 10);
-                elInner.translate(ex, -postH * 0.6, ez);
-                injectorGroup.add(new THREE.Mesh(elInner, oxPostMat));
+                // 2) Shearing Annular GOX Gas Plume
+                const goxGasPlume = new THREE.CylinderGeometry(elemR * 0.85, elemR * 0.55, postH * 0.8, 10);
+                goxGasPlume.translate(ex, -postH * 0.40, ez);
+                injectorGroup.add(new THREE.Mesh(goxGasPlume, goxStreamMat));
 
-                const loxBore = new THREE.CylinderGeometry(elemR * 0.28, elemR * 0.28, postH * 1.25, 8);
-                loxBore.translate(ex, -postH * 0.625, ez);
-                injectorGroup.add(new THREE.Mesh(loxBore, holeMat));
+                // 3) Expanding Turbulent Shear Atomization Spray Cone (meets other plumes & spark igniter)
+                const coneH = Math.min(Lcyl * 0.28, 0.035);
+                const sprayCone = new THREE.ConeGeometry(elemR * 2.8, coneH, 12, 1, true);
+                sprayCone.translate(ex, -coneH / 2 - postH * 0.25, ez);
+                injectorGroup.add(new THREE.Mesh(sprayCone, flameMixMat));
               }
             }
           });
@@ -3748,6 +3985,11 @@
                 const sx = rg.radius * Math.sin(ang);
                 const sz = rg.radius * Math.cos(ang);
 
+                // Central LOX swirl feed tube from upper dome
+                const swirlFeed = new THREE.CylinderGeometry(swirlR * 0.4, swirlR * 0.4, y_div_top, 10);
+                swirlFeed.translate(sx, y_div_top / 2, sz);
+                injectorGroup.add(new THREE.Mesh(swirlFeed, loxFluidMat));
+
                 const cupHole = new THREE.CylinderGeometry(swirlR * 1.15, swirlR * 1.15, 0.002, 14);
                 cupHole.translate(sx, -0.001, sz);
                 injectorGroup.add(new THREE.Mesh(cupHole, holeMat));
@@ -3756,16 +3998,18 @@
                 cupGeom.translate(sx, -swirlH / 2, sz);
                 injectorGroup.add(new THREE.Mesh(cupGeom, swirlMat));
 
-                const dischargeHole = new THREE.CylinderGeometry(swirlR * 0.38, swirlR * 0.38, swirlH * 1.1, 10);
-                dischargeHole.translate(sx, -swirlH / 2, sz);
-                injectorGroup.add(new THREE.Mesh(dischargeHole, holeMat));
+                // In-Chamber Hollow Swirling Cone (Mixes in Combustor)
+                const swirlSpray = new THREE.ConeGeometry(swirlR * 2.4, swirlH * 1.5, 14, 1, true);
+                swirlSpray.translate(sx, -swirlH - (swirlH * 1.5) / 2, sz);
+                injectorGroup.add(new THREE.Mesh(swirlSpray, flameMixMat));
               }
             }
           });
         }
         else {
+          // Impinging Doublet Injectors
           const orifMat = new THREE.MeshStandardMaterial({
-            color: 0x0284c7,
+            color: 0x94a3b8,
             metalness: 0.8,
             roughness: 0.2
           });
@@ -3778,6 +4022,16 @@
               const fuelX = (Rc * 0.70) * Math.sin(ang);
               const fuelZ = (Rc * 0.70) * Math.cos(ang);
 
+              // Upper LOX feed tube through divider
+              const oxFeed = new THREE.CylinderGeometry(0.0015, 0.0015, y_div_top, 8);
+              oxFeed.translate(oxX, y_div_top / 2, oxZ);
+              injectorGroup.add(new THREE.Mesh(oxFeed, loxFluidMat));
+
+              // Lower GOX feed tube
+              const fuelFeed = new THREE.CylinderGeometry(0.0015, 0.0015, y_gox_top, 8);
+              fuelFeed.translate(fuelX, y_gox_top / 2, fuelZ);
+              injectorGroup.add(new THREE.Mesh(fuelFeed, goxStreamMat));
+
               const oxHole = new THREE.CylinderGeometry(0.0022, 0.0022, 0.002, 8);
               oxHole.translate(oxX, -0.001, oxZ);
               injectorGroup.add(new THREE.Mesh(oxHole, holeMat));
@@ -3786,6 +4040,7 @@
               fuelHole.translate(fuelX, -0.001, fuelZ);
               injectorGroup.add(new THREE.Mesh(fuelHole, holeMat));
 
+              // Angled jets colliding in combustion chamber (y < 0)
               const oxN = new THREE.CylinderGeometry(0.0012, 0.0012, 0.012, 8);
               oxN.rotateZ(0.25);
               oxN.translate(oxX, -0.006, oxZ);
@@ -3795,10 +4050,14 @@
               fuelN.rotateZ(-0.25);
               fuelN.translate(fuelX, -0.006, fuelZ);
               injectorGroup.add(new THREE.Mesh(fuelN, orifMat));
+
+              // In-Chamber Impingement Atomization Plume
+              const impingeSpray = new THREE.ConeGeometry(0.008, 0.024, 8, 1, true);
+              impingeSpray.translate((oxX + fuelX) / 2, -0.022, (oxZ + fuelZ) / 2);
+              injectorGroup.add(new THREE.Mesh(impingeSpray, flameMixMat));
             }
           }
-        }
-        engineGroup.add(injectorGroup);
+        }engineGroup.add(injectorGroup);
 
         // =====================================================================
         // Feature 1.5: Combustion Chamber Spark Torch Igniter Assembly
@@ -3968,30 +4227,79 @@
             const cap2 = new THREE.Mesh(capGeom2, sectionCapMat);
             engineGroup.add(cap2);
 
-            // Cap injector dome faceplate at phi = 0
+            // Cap multi-layer isolated injector assembly at phi = 0
             const injCapPos1 = [
+              // Faceplate layer
               0, 0, 0,
-              0, flangeThick * 0.7, 0,
-              0, flangeThick * 0.7, Rc * 0.99,
+              0, y_face_top, 0,
+              0, y_face_top, Rc * 0.99,
               0, 0, 0,
-              0, flangeThick * 0.7, Rc * 0.99,
-              0, 0, Rc * 0.99
+              0, y_face_top, Rc * 0.99,
+              0, 0, Rc * 0.99,
+              // Lower GOX Plenum housing
+              0, y_face_top, 0,
+              0, y_gox_top, 0,
+              0, y_gox_top, Rc * 0.98,
+              0, y_face_top, 0,
+              0, y_gox_top, Rc * 0.98,
+              0, y_face_top, Rc * 0.98,
+              // Inconel Divider Bulkhead
+              0, y_gox_top, 0,
+              0, y_div_top, 0,
+              0, y_div_top, Rc * 0.985,
+              0, y_gox_top, 0,
+              0, y_div_top, Rc * 0.985,
+              0, y_gox_top, Rc * 0.985,
+              // Upper LOX Dome
+              0, y_div_top, 0,
+              0, y_lox_top, 0,
+              0, y_div_top, Rc * 0.96,
+              0, y_div_top, Rc * 0.96,
+              0, y_lox_top, 0,
+              0, y_lox_top, 0
             ];
             const injCapGeom1 = new THREE.BufferGeometry();
             injCapGeom1.setAttribute('position', new THREE.Float32BufferAttribute(injCapPos1, 3));
             injCapGeom1.computeVertexNormals();
             injectorGroup.add(new THREE.Mesh(injCapGeom1, sectionCapMat));
 
-            // Cap injector dome faceplate at phi = cutawayPhi
+            // Cap multi-layer isolated injector assembly at phi = cutawayPhi
             const cPhi = Math.cos(cutawayPhi);
             const sPhi = Math.sin(cutawayPhi);
+            const rFace = Rc * 0.99;
+            const rGox = Rc * 0.98;
+            const rDiv = Rc * 0.985;
+            const rLox = Rc * 0.96;
+
             const injCapPos2 = [
+              // Faceplate
               0, 0, 0,
-              0, flangeThick * 0.7, 0,
-              Rc * 0.99 * sPhi, flangeThick * 0.7, Rc * 0.99 * cPhi,
+              0, y_face_top, 0,
+              rFace * sPhi, y_face_top, rFace * cPhi,
               0, 0, 0,
-              Rc * 0.99 * sPhi, flangeThick * 0.7, Rc * 0.99 * cPhi,
-              Rc * 0.99 * sPhi, 0, Rc * 0.99 * cPhi
+              rFace * sPhi, y_face_top, rFace * cPhi,
+              rFace * sPhi, 0, rFace * cPhi,
+              // GOX Plenum
+              0, y_face_top, 0,
+              0, y_gox_top, 0,
+              rGox * sPhi, y_gox_top, rGox * cPhi,
+              0, y_face_top, 0,
+              rGox * sPhi, y_gox_top, rGox * cPhi,
+              rGox * sPhi, y_face_top, rGox * cPhi,
+              // Divider Bulkhead
+              0, y_gox_top, 0,
+              0, y_div_top, 0,
+              rDiv * sPhi, y_div_top, rDiv * cPhi,
+              0, y_gox_top, 0,
+              rDiv * sPhi, y_div_top, rDiv * cPhi,
+              rDiv * sPhi, y_gox_top, rDiv * cPhi,
+              // LOX Dome
+              0, y_div_top, 0,
+              0, y_lox_top, 0,
+              rLox * sPhi, y_div_top, rLox * cPhi,
+              rLox * sPhi, y_div_top, rLox * cPhi,
+              0, y_lox_top, 0,
+              0, y_lox_top, 0
             ];
             const injCapGeom2 = new THREE.BufferGeometry();
             injCapGeom2.setAttribute('position', new THREE.Float32BufferAttribute(injCapPos2, 3));
