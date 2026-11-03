@@ -1010,6 +1010,8 @@
               <button class="btn-sub-cad active" id="btn-src-parametric" onclick="setCadModelSource('parametric')">⚡ Live Parametric CAD</button>
               <button class="btn-sub-cad" id="btn-src-upload" onclick="document.getElementById('cad-file-input').click()">📂 Open Local .STL / .STEP</button>
               <input type="file" id="cad-file-input" style="display:none;" accept=".stl,.step,.stp" onchange="handleCadFileUpload(event)">
+              <button class="btn-sub-cad" id="btn-quick-export-stl" onclick="downloadParametricStl()" title="Download watertight 3D STL mesh of active engine" style="background: rgba(34,197,94,0.18); color: #22c55e; border-color: rgba(34,197,94,0.45); font-weight: 700;">💾 Export 3D STL</button>
+              <button class="btn-sub-cad" id="btn-quick-export-step" onclick="downloadCadQueryScript()" title="Generate OpenCASCADE 3D STEP script" style="background: rgba(56,189,248,0.18); color: #38bdf8; border-color: rgba(56,189,248,0.45); font-weight: 700;">📐 Export STEP Script</button>
             </div>
             <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
               <span style="color: #94a3b8; font-weight: 700; font-size: 11px; letter-spacing: 0.5px;">VIEW PRESETS:</span>
@@ -1325,9 +1327,9 @@
             <a href="cad/chamber_30kn_hollow_wall.step" download="chamber_30kn_hollow_wall.step" style="background: linear-gradient(135deg, rgba(2,132,199,0.3), rgba(56,189,248,0.2)); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.5); padding: 8px 14px; border-radius: 6px; font-weight: 700; font-size: 12.5px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s;">
               📐 Download 3D STEP Model (.step)
             </a>
-            <a href="cad/chamber_30kn_hollow_wall.stl" download="chamber_30kn_hollow_wall.stl" style="background: linear-gradient(135deg, rgba(16,185,129,0.25), rgba(34,197,94,0.15)); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.5); padding: 8px 14px; border-radius: 6px; font-weight: 700; font-size: 12.5px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s;">
-              🖨️ Download 3D STL (.stl for Windows 3D Viewer)
-            </a>
+            <button onclick="downloadParametricStl()" id="btn-download-stl" style="background: linear-gradient(135deg, rgba(16,185,129,0.3), rgba(34,197,94,0.2)); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.6); padding: 8px 14px; border-radius: 6px; font-weight: 700; font-size: 12.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s;">
+              ⚡ Download Live 3D STL (.stl)
+            </button>
             <button onclick="downloadCadQueryScript()" style="background: rgba(255, 255, 255, 0.05); color: #cbd5e1; border: 1px solid rgba(255, 255, 255, 0.15); padding: 8px 14px; border-radius: 6px; font-weight: 600; font-size: 12.5px; cursor: pointer; transition: all 0.2s;">
               🛠️ CadQuery Script (.py)
             </button>
@@ -4371,6 +4373,203 @@ print("Exported 3D STEP model: navronis_hollow_thrust_chamber.step (Hollow insid
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+    }
+
+    // -------------------------------------------------------------------------
+    // Live 1-Click Binary 3D STL Generator & Exporter
+    // -------------------------------------------------------------------------
+    function downloadParametricStl() {
+      if (!latestEngineGeometry) {
+        alert("Please wait for engine sizing to calculate.");
+        return;
+      }
+      const geom = latestEngineGeometry;
+
+      // Build complete, watertight closed cross-section wire in millimeters
+      const Rc = (geom.dc_mm / 2);
+      const Rt = (geom.dt_mm / 2);
+      const Re = (geom.de_mm / 2);
+      const Lcyl = geom.lcyl_mm;
+      const Lconv = geom.lconv_mm;
+      const Lnoz = geom.lnoz_mm;
+      const tw = Math.max((geom.tw_mm || 3.0), 2.0);
+      const hc = Math.max((geom.hc_mm || 1.8), 1.0);
+      const totalL = Lcyl + Lconv + Lnoz;
+
+      // 1. Gas-Side Inner Aerodynamic Contour (x from 0 to totalL)
+      const profile = [];
+      const nCyl = 16;
+      for (let i = 0; i <= nCyl; i++) {
+        profile.push({ x: (i / nCyl) * Lcyl, r: Rc });
+      }
+
+      const nConv = 26;
+      const xThroat = Lcyl + Lconv;
+      for (let i = 1; i <= nConv; i++) {
+        const u = i / nConv;
+        const blend = 0.5 * (1.0 - Math.cos(u * Math.PI));
+        profile.push({ x: Lcyl + u * Lconv, r: Rc - (Rc - Rt) * blend });
+      }
+
+      const nNoz = 44;
+      if (geom.nozType === 'conical') {
+        for (let i = 1; i <= nNoz; i++) {
+          const u = i / nNoz;
+          profile.push({ x: xThroat + u * Lnoz, r: Rt + (Re - Rt) * u });
+        }
+      } else {
+        // True Rao 80% parabolic bell
+        const thetaN = 30.0 * Math.PI / 180.0;
+        const thetaE = (geom.theta_e || 8.0) * Math.PI / 180.0;
+        const m1 = Math.tan(thetaN), m2 = Math.tan(thetaE);
+        const P0x = 0.0, P0r = Rt;
+        const P2x = Lnoz, P2r = Re;
+        let P1x = (Re - Rt - m2 * Lnoz) / (m1 - m2 || 0.001);
+        if (P1x <= 0 || P1x >= Lnoz) P1x = 0.35 * Lnoz;
+        const P1r = m1 * P1x + Rt;
+
+        for (let i = 1; i <= nNoz; i++) {
+          const t = i / nNoz;
+          const inv = 1.0 - t;
+          const bx = inv * inv * P0x + 2.0 * inv * t * P1x + t * t * P2x;
+          const br = inv * inv * P0r + 2.0 * inv * t * P1r + t * t * P2r;
+          profile.push({ x: xThroat + bx, r: br });
+        }
+      }
+
+      // 2. Outer Structural Shell Points
+      const outerPts = [];
+      const exitLipR = Re + tw * 2.2;
+      const exitLipLen = Math.min(Lnoz * 0.06, 14.0);
+      outerPts.push({ x: totalL, r: exitLipR });
+      outerPts.push({ x: totalL - exitLipLen, r: exitLipR });
+
+      const xThroatTurnaround = xThroat + Math.min(Lnoz * 0.08, 25.0);
+      for (let i = profile.length - 2; i >= 0; i--) {
+        const pt = profile[i];
+        if (pt.x > xThroatTurnaround && pt.x < totalL - exitLipLen) {
+          outerPts.push({ x: pt.x, r: pt.r + tw });
+        }
+      }
+
+      const rTorusInlet = Math.min(12.0, Lconv * 0.25);
+      for (let k = 0; k <= 8; k++) {
+        const ang = (k / 8) * Math.PI;
+        outerPts.push({
+          x: xThroatTurnaround - rTorusInlet * Math.cos(ang),
+          r: Rt + tw + hc + rTorusInlet * 0.75 * Math.sin(ang)
+        });
+      }
+
+      for (let i = profile.length - 1; i >= 0; i--) {
+        const pt = profile[i];
+        if (pt.x > Lcyl && pt.x < (xThroatTurnaround - rTorusInlet)) {
+          outerPts.push({ x: pt.x, r: pt.r + tw + hc * 0.8 });
+        }
+      }
+
+      const xManifoldOutlet = Math.max(20.0, Lcyl * 0.20);
+      outerPts.push({ x: Lcyl, r: Rc + tw + hc });
+      outerPts.push({ x: xManifoldOutlet + 10.0, r: Rc + tw + hc });
+
+      for (let k = 0; k <= 8; k++) {
+        const ang = (k / 8) * Math.PI;
+        outerPts.push({
+          x: xManifoldOutlet - 8.0 * Math.cos(ang),
+          r: Rc + tw + hc + 8.0 * Math.sin(ang)
+        });
+      }
+
+      const flangeThick = Math.min(15.0, Lcyl * 0.12);
+      const flangeR = Rc * 1.25;
+      outerPts.push({ x: flangeThick, r: Rc + tw + hc });
+      outerPts.push({ x: flangeThick, r: flangeR });
+      outerPts.push({ x: 0.0, r: flangeR });
+
+      // Closed loop polygon in (x, r) plane
+      const ring = profile.concat(outerPts);
+      ring.push({ x: 0.0, r: Rc }); // close the loop back to start
+
+      const nSegments = 72; // 5 deg azimuth resolution (watertight solid of revolution)
+      const numTriangles = (ring.length - 1) * nSegments * 2;
+
+      // Allocate Binary STL buffer (84 bytes header + 50 bytes per triangle)
+      const bufferSize = 84 + numTriangles * 50;
+      const buffer = new ArrayBuffer(bufferSize);
+      const view = new DataView(buffer);
+
+      const title = "Navronis 3D Thrust Chamber - " + (geom.mat || "Alloy") + " Pc=" + geom.pc_bar.toFixed(1) + "bar";
+      for (let i = 0; i < 80; i++) {
+        view.setUint8(i, i < title.length ? title.charCodeAt(i) : 32);
+      }
+      view.setUint32(80, numTriangles, true);
+
+      let offset = 84;
+      for (let i = 0; i < ring.length - 1; i++) {
+        const p1 = ring[i];
+        const p2 = ring[i + 1];
+
+        for (let j = 0; j < nSegments; j++) {
+          const phi1 = (j / nSegments) * 2.0 * Math.PI;
+          const phi2 = ((j + 1) / nSegments) * 2.0 * Math.PI;
+
+          const Ax = p1.x, Ay = p1.r * Math.cos(phi1), Az = p1.r * Math.sin(phi1);
+          const Bx = p1.x, By = p1.r * Math.cos(phi2), Bz = p1.r * Math.sin(phi2);
+          const Cx = p2.x, Cy = p2.r * Math.cos(phi2), Cz = p2.r * Math.sin(phi2);
+          const Dx = p2.x, Dy = p2.r * Math.cos(phi1), Dz = p2.r * Math.sin(phi1);
+
+          // Triangle 1: (A, B, C)
+          writeBinaryStlFacet(view, offset, Ax, Ay, Az, Bx, By, Bz, Cx, Cy, Cz);
+          offset += 50;
+
+          // Triangle 2: (A, C, D)
+          writeBinaryStlFacet(view, offset, Ax, Ay, Az, Cx, Cy, Cz, Dx, Dy, Dz);
+          offset += 50;
+        }
+      }
+
+      const blob = new Blob([buffer], { type: 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      const engPreset = (document.getElementById('sel-engine-preset')?.value || 'custom').replace(/[^a-zA-Z0-9_-]/g, '_');
+      link.setAttribute("download", "navronis_3d_chamber_" + engPreset + "_" + geom.pc_bar.toFixed(0) + "bar.stl");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    }
+
+    function writeBinaryStlFacet(view, offset, v1x, v1y, v1z, v2x, v2y, v2z, v3x, v3y, v3z) {
+      const ax = v2x - v1x, ay = v2y - v1y, az = v2z - v1z;
+      const bx = v3x - v1x, by = v3y - v1y, bz = v3z - v1z;
+      let nx = ay * bz - az * by;
+      let ny = az * bx - ax * bz;
+      let nz = ax * by - ay * bx;
+      const len = Math.sqrt(nx * nx + ny * ny + nz * nz);
+      if (len > 1e-7) {
+        nx /= len; ny /= len; nz /= len;
+      } else {
+        nx = 0; ny = 0; nz = 0;
+      }
+
+      view.setFloat32(offset, nx, true);
+      view.setFloat32(offset + 4, ny, true);
+      view.setFloat32(offset + 8, nz, true);
+
+      view.setFloat32(offset + 12, v1x, true);
+      view.setFloat32(offset + 16, v1y, true);
+      view.setFloat32(offset + 20, v1z, true);
+
+      view.setFloat32(offset + 24, v2x, true);
+      view.setFloat32(offset + 28, v2y, true);
+      view.setFloat32(offset + 32, v2z, true);
+
+      view.setFloat32(offset + 36, v3x, true);
+      view.setFloat32(offset + 40, v3y, true);
+      view.setFloat32(offset + 44, v3z, true);
+
+      view.setUint16(offset + 48, 0, true);
     }
 
     // Run on load
