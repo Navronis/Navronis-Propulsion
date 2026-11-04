@@ -571,7 +571,7 @@
       <!-- Interactive Action Bar: Recompute Button & Live Status -->
       <div style="display: flex; gap: 14px; align-items: center; justify-content: space-between; flex-wrap: wrap; background: rgba(2, 132, 199, 0.1); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 8px; padding: 12px 18px; margin-bottom: 20px;">
         <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-          <button id="btn-recompute-sizing" onclick="calculateSizing(true)" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff; border: 1px solid #38bdf8; padding: 10px 22px; border-radius: 6px; font-weight: 800; font-size: 13.5px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 14px rgba(2, 132, 199, 0.4); transition: transform 0.1s ease;">
+          <button id="btn-recompute-sizing" onclick="onRecomputeButtonClick()" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff; border: 1px solid #38bdf8; padding: 10px 22px; border-radius: 6px; font-weight: 800; font-size: 13.5px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 14px rgba(2, 132, 199, 0.4); transition: transform 0.1s ease;">
             🚀 Recompute Sizing &amp; Update 3D CAD
           </button>
           <span id="sizing-update-status" style="font-family: var(--font-mono); font-size: 12px; color: #22c55e; font-weight: 700;">
@@ -630,7 +630,7 @@
         </div>
         <div class="calc-field">
           <label>Element Count</label>
-          <input type="number" id="inp-elements" value="19" min="1" max="500" oninput="calculateSizing()" onchange="calculateSizing()">
+          <input type="number" id="inp-elements" value="19" min="1" max="500" oninput="onElementCountChange()" onchange="onElementCountChange()">
         </div>
         <div class="calc-field">
           <label>Injector ΔP / Pc Ratio</label>
@@ -1094,6 +1094,9 @@
               <span id="ribbon-cantera-badge" style="color: #38bdf8; font-weight: 700;">🔬 Cantera GRI-Mech 3.0 Verified (&lt;0.2% c*)</span>
             </div>
           </div>
+
+          <!-- Live Floating CAD Toast Notification -->
+          <div id="cad-live-toast" style="display: none; position: absolute; top: 52px; left: 50%; transform: translateX(-50%); background: rgba(15, 23, 42, 0.96); color: #38bdf8; border: 1.5px solid #38bdf8; border-radius: 8px; padding: 8px 22px; font-family: var(--font-mono); font-size: 12px; font-weight: 800; z-index: 25; box-shadow: 0 4px 20px rgba(0,0,0,0.7); pointer-events: none; transition: opacity 0.3s ease; text-align: center;"></div>
 
           <!-- SolidWorks Floating CAD HUD Navigation Toolbar (Top-Right) -->
           <div id="solidworks-hud-bar" style="position: absolute; top: 48px; right: 12px; display: flex; gap: 5px; flex-wrap: wrap; z-index: 10;">
@@ -1672,9 +1675,95 @@
   </footer>
 
   <script>
-        function onInjectorChange() {
-      // Retain user-selected cutaway view (default remains 360 solid vessel)
+        function getInjectorDisplayName(type) {
+      if (type === 'pintle') return 'Central Pintle Injector';
+      if (type === 'coaxial') return 'Shear Coaxial Injector';
+      if (type === 'swirl') return 'Centrifugal Swirl Injector';
+      return 'Unlike Impinging Doublet';
+    }
+
+    let toastTimer = null;
+    function showCadToast(msg) {
+      const t = document.getElementById('cad-live-toast');
+      if (!t) return;
+      t.innerText = msg;
+      t.style.display = 'block';
+      t.style.opacity = '1';
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        t.style.opacity = '0';
+        setTimeout(() => { t.style.display = 'none'; }, 300);
+      }, 2600);
+    }
+
+    function onInjectorChange() {
+      const injVal = document.getElementById('inp-inj').value;
+      const elInp = document.getElementById('inp-elements');
+      if (elInp) {
+        if (injVal === 'pintle') {
+          elInp.value = 1;
+          elInp.disabled = true;
+          elInp.title = 'Central Pintle uses a single axial injector element';
+        } else {
+          elInp.disabled = false;
+          elInp.title = 'Number of discrete injector elements';
+          if (parseInt(elInp.value) <= 1) {
+            elInp.value = (injVal === 'coaxial' ? 19 : (injVal === 'swirl' ? 14 : 16));
+          }
+        }
+      }
+
+      // Always switch to Live Parametric CAD so changes are dynamically rendered
+      setCadModelSource('parametric');
+
+      // If in 360 solid view, switch to 180 half section so internal injector and combustor plumes are visible
+      if (cutawayPhi >= 1.99 * Math.PI) {
+        setCutaway(Math.PI, document.getElementById('btn-cut-180'));
+      }
+
       calculateSizing(true);
+      focusCadFeature('injector');
+      const countStr = elInp ? elInp.value : (injVal === 'pintle' ? '1' : '19');
+      showCadToast('⚡ Injector Synced: ' + getInjectorDisplayName(injVal) + ' (' + countStr + ' Elements)');
+      const st = document.getElementById('sizing-update-status');
+      if (st) st.innerText = '✓ 3D CAD Synced: ' + getInjectorDisplayName(injVal) + ' (' + countStr + ' Elements)';
+    }
+
+    function onElementCountChange() {
+      setCadModelSource('parametric');
+      if (cutawayPhi >= 1.99 * Math.PI) {
+        setCutaway(Math.PI, document.getElementById('btn-cut-180'));
+      }
+      calculateSizing(false);
+      focusCadFeature('injector');
+      const injVal = document.getElementById('inp-inj') ? document.getElementById('inp-inj').value : 'coaxial';
+      const elVal = document.getElementById('inp-elements') ? document.getElementById('inp-elements').value : '19';
+      showCadToast('⚡ Elements: ' + elVal + ' (' + getInjectorDisplayName(injVal) + ')');
+      const st = document.getElementById('sizing-update-status');
+      if (st) st.innerText = '✓ 3D CAD Synced: ' + getInjectorDisplayName(injVal) + ' (' + elVal + ' Elements)';
+    }
+
+    function onRecomputeButtonClick() {
+      // 1. Force model source to live parametric CAD
+      setCadModelSource('parametric');
+
+      // 2. If in 360 solid view, switch to 180 half section so internal injector and combustor changes are visible
+      if (cutawayPhi >= 1.99 * Math.PI) {
+        setCutaway(Math.PI, document.getElementById('btn-cut-180'));
+      }
+
+      // 3. Recompute full propulsion sizing
+      calculateSizing(true);
+
+      // 4. Focus camera directly on the injector head
+      focusCadFeature('injector');
+
+      // 5. Flash CAD HUD toast notification
+      const inj = document.getElementById('inp-inj') ? document.getElementById('inp-inj').value : 'coaxial';
+      const ne = document.getElementById('inp-elements') ? document.getElementById('inp-elements').value : '19';
+      showCadToast('🚀 3D CAD Synced: ' + getInjectorDisplayName(inj) + ' (' + ne + ' Elements)');
+      const st = document.getElementById('sizing-update-status');
+      if (st) st.innerText = '✓ 3D CAD Synced: ' + getInjectorDisplayName(inj) + ' (' + ne + ' Elements)';
     }
 
     function loadEnginePreset() {
@@ -1704,14 +1793,24 @@
         if (p.nozType && document.getElementById('inp-nozzle-type')) document.getElementById('inp-nozzle-type').value = p.nozType;
         if (p.m0) document.getElementById('inp-m0').value = p.m0;
         if (p.payload) document.getElementById('inp-mpayload').value = p.payload;
+
+        const elInp = document.getElementById('inp-elements');
+        if (elInp) {
+          elInp.disabled = (p.inj === 'pintle');
+          elInp.title = (p.inj === 'pintle') ? 'Central Pintle uses a single axial injector element' : 'Number of discrete injector elements';
+        }
+
         // Switch to Live Parametric CAD to dynamically build and display this specific engine
         setCadModelSource('parametric');
+        if (cutawayPhi >= 1.99 * Math.PI) {
+          setCutaway(Math.PI, document.getElementById('btn-cut-180'));
+        }
         calculateSizing(true);
+        focusCadFeature('injector');
+        showCadToast('🚀 Loaded Preset: ' + val.toUpperCase() + ' (' + getInjectorDisplayName(p.inj) + ', ' + p.ne + ' El)');
       }
     }
 
-    
-    // Cantera 3.2.0 GRI-Mech 3.0 Thermochemical Chemical Kinetics Engine
     function calculateCanteraEquilibrium(prop, pc_bar, of) {
       const pRatio = Math.max(0.1, pc_bar / 70.0);
       const logP = Math.log(pRatio);
@@ -1819,6 +1918,9 @@
     }
 
     function calculateSizing(isManual) {
+      if (isManual) {
+        setCadModelSource('parametric');
+      }
       const statusEl = document.getElementById('sizing-update-status');
       if (statusEl) {
         statusEl.innerText = isManual ? '✓ Recomputed & 3D Model Synced!' : '✓ Synced (' + (new Date()).toLocaleTimeString() + ')';
@@ -1839,7 +1941,8 @@
       const lstar = parseFloat(document.getElementById('inp-lstar').value) || 1.0;
       const theta_deg = parseFloat(document.getElementById('inp-theta').value) || 30.0;
       const injType = document.getElementById('inp-inj').value;
-      const ne = parseInt(document.getElementById('inp-elements').value) || 19;
+      let ne = parseInt(document.getElementById('inp-elements').value) || 19;
+      if (injType === 'pintle') ne = 1;
       const dp_ratio_nom = parseFloat(document.getElementById('inp-dpratio').value) || 0.20;
       const dp_ratio = dp_ratio_nom * tau; // dP_inj drops as tau^2, Pc drops as tau, so ratio drops as tau
 
@@ -2912,7 +3015,8 @@
       document.querySelectorAll('#controls-3d .btn-sub-cad').forEach(b => {
         if (b.id && b.id.startsWith('btn-cut-')) b.classList.remove('active');
       });
-      if (btn) btn.classList.add('active');
+      const targetBtn = btn || (Math.abs(angle - Math.PI) < 0.1 ? document.getElementById('btn-cut-180') : (Math.abs(angle - 1.5 * Math.PI) < 0.1 ? document.getElementById('btn-cut-90') : document.getElementById('btn-cut-360')));
+      if (targetBtn) targetBtn.classList.add('active');
       if (latestEngineGeometry) updateThree3dModel(latestEngineGeometry);
     }
 
@@ -2977,6 +3081,7 @@
       const Rt = (geom.dt_mm / 2) * scale;
 
       window.cadHasUserPannedOrZoomed = false;
+      window.cadFeatureFocused = (feature !== 'fit');
 
       if (feature === 'fit') {
         camTarget.set(0, 0, 0);
@@ -3803,6 +3908,16 @@
             roughness: 0.18
           });
 
+          // Exterior Pintle Actuator Tower & Servomotor Housing (Distinct exterior cue in 360 solid mode)
+          const towerH = flangeThick * 1.8;
+          const towerR = loxPipeR * 0.72;
+          const towerGeom = new THREE.CylinderGeometry(towerR, towerR, towerH, 18);
+          towerGeom.translate(0, loxY0 + loxH + towerH / 2, 0);
+          injectorGroup.add(new THREE.Mesh(towerGeom, boltMat));
+          const actuatorCap = new THREE.CylinderGeometry(towerR * 1.28, towerR * 1.28, flangeThick * 0.35, 18);
+          actuatorCap.translate(0, loxY0 + loxH + towerH, 0);
+          injectorGroup.add(new THREE.Mesh(actuatorCap, pintleMat));
+
           // Feed passage from LOX dome down through divider bulkhead
           const pintleFeedTube = new THREE.CylinderGeometry(pintleShaftR * 0.8, pintleShaftR * 0.8, y_div_top, 20);
           pintleFeedTube.translate(0, y_div_top / 2, 0);
@@ -3852,6 +3967,15 @@
           injectorGroup.add(new THREE.Mesh(sleeveGeom, boltMat));
         }
         else if (injFamily === 'coaxial') {
+          // Exterior High-Pressure Instrumentation Transducer Bosses (Distinct exterior cue in 360 solid mode)
+          const bossGeom1 = new THREE.CylinderGeometry(0.0035, 0.0035, flangeThick * 0.8, 12);
+          bossGeom1.rotateZ(Math.PI / 2);
+          bossGeom1.translate(Rc * 1.02, y_gox_bot + H_gox * 0.65, 0);
+          injectorGroup.add(new THREE.Mesh(bossGeom1, boltMat));
+          const bossGeom2 = new THREE.CylinderGeometry(0.0035, 0.0035, flangeThick * 0.8, 12);
+          bossGeom2.rotateX(Math.PI / 2);
+          bossGeom2.translate(0, y_gox_bot + H_gox * 0.65, Rc * 1.02);
+          injectorGroup.add(new THREE.Mesh(bossGeom2, boltMat));
           const elemMat = new THREE.MeshStandardMaterial({
             color: 0xf59e0b, // Brass/Gold Outer Annular GOX Sleeve
             metalness: 0.82,
@@ -3954,6 +4078,13 @@
             metalness: 0.75,
             roughness: 0.25
           });
+          // Exterior Tangential Swirl Manifold Torus (Distinct exterior cue in 360 solid mode)
+          const swirlTorusR = Rc * 1.05;
+          const swirlTubeR = Math.max(0.0035, Rc * 0.08);
+          const swirlTorusGeom = new THREE.TorusGeometry(swirlTorusR, swirlTubeR, 12, 32);
+          swirlTorusGeom.rotateX(Math.PI / 2);
+          swirlTorusGeom.translate(0, y_gox_bot + H_gox * 0.5, 0);
+          injectorGroup.add(new THREE.Mesh(swirlTorusGeom, swirlMat));
           const neTotal = Math.min(Math.max(6, nElementsTarget), 64);
           const swirlR = Math.max(0.0035, Rc * (0.12 / Math.sqrt(neTotal / 12)));
           const swirlH = Math.min(Lcyl * 0.16, 0.022);
@@ -4013,6 +4144,13 @@
             metalness: 0.8,
             roughness: 0.2
           });
+          // Exterior Cross-Distribution Manifold Ring (Distinct exterior cue in 360 solid mode)
+          const ringR = Rc * 1.10;
+          const ringTubeR = Math.max(0.0030, Rc * 0.06);
+          const ringGeom = new THREE.TorusGeometry(ringR, ringTubeR, 10, 32);
+          ringGeom.rotateX(Math.PI / 2);
+          ringGeom.translate(0, y_div_bot + H_div * 0.5, 0);
+          injectorGroup.add(new THREE.Mesh(ringGeom, dividerMat));
           const nPairs = Math.min(Math.max(6, Math.round(nElementsTarget)), 36);
           for (let i = 0; i < nPairs; i++) {
             const ang = (i / nPairs) * 2 * Math.PI;
@@ -4330,14 +4468,15 @@ if (cadShadingMode === 'edges') {
       // Dynamically auto-frame camera to fit the physical size of this engine
       if (isFixedScaleMode) {
         camDist = 3.6; // Fixed observer vantage point (3.6m) for accurate 1:1 true-scale comparison
-      } else {
+      } else if (!window.cadHasUserPannedOrZoomed && !window.cadFeatureFocused) {
         const autoL = (geom.lcyl_mm + geom.lconv_mm + geom.lnoz_mm) * 0.001;
         const autoMaxDiam = Math.max(geom.dc_mm, geom.de_mm) * 0.001;
         const boundingDim = Math.max(autoL, autoMaxDiam);
         camDist = Math.max(0.65, boundingDim * 1.45);
+        if (!camTarget) camTarget = new THREE.Vector3(0, 0, 0);
+        else camTarget.set(0, 0, 0);
       }
       if (!camTarget) camTarget = new THREE.Vector3(0, 0, 0);
-      camTarget.set(0, 0, 0);
       updateCamera();
 
       // Dynamic ground datum grid scaling and placement beneath engine
