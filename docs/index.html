@@ -1123,6 +1123,7 @@
               <div><span style="color: #38bdf8; font-weight: 900;">●</span> Combustor Mixing Plumes (y &lt; 0)</div>
               <div><span style="color: #df7a44; font-weight: 900;">●</span> Combustor &amp; Throat Liner: <strong>GRCop-42 Copper</strong></div>
               <div><span style="color: #64748b; font-weight: 900;">●</span> Structural Outer Jacket: <strong>Inconel-718 Shell</strong></div>
+              <div><span style="color: #090d16; font-weight: 900; background: #38bdf8; border-radius: 50%; padding: 0 3px;">●</span> Negative Cut-Outs: <strong>Bores &amp; Milled Holes</strong></div>
             </div>
             <div style="margin-top: 5px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; gap: 8px; font-size: 9.5px;">
               <span style="color: #ef4444; font-weight: 700;">+X Thrust Axis [℄]</span>
@@ -3796,8 +3797,13 @@
         for (let b = 0; b < nBolts; b++) {
           const ang = (b / nBolts) * 2 * Math.PI;
           if (ang <= cutawayPhi || cutawayPhi >= 1.99 * Math.PI) {
-            const boltGeom = new THREE.CylinderGeometry(0.0022, 0.0022, flangeThick * 1.3, 8);
-            boltGeom.translate(boltR * Math.sin(ang), flangeThick * 0.5, boltR * Math.cos(ang));
+            // Negative Cutout: Drilled Flange Through-Hole (ASME Clearance Fit)
+            const boltHoleGeom = new THREE.CylinderGeometry(0.0026, 0.0026, flangeThick * 1.05, 8);
+            boltHoleGeom.translate(boltR * Math.sin(ang), flangeThick * 0.5, boltR * Math.cos(ang));
+            injectorGroup.add(new THREE.Mesh(boltHoleGeom, holeMat));
+
+            const boltGeom = new THREE.CylinderGeometry(0.0022, 0.0022, flangeThick * 1.35, 8);
+            boltGeom.translate(boltR * Math.sin(ang), flangeThick * 0.55, boltR * Math.cos(ang));
             injectorGroup.add(new THREE.Mesh(boltGeom, boltMat));
           }
         }
@@ -3827,28 +3833,50 @@
         injectorGroup.add(new THREE.Mesh(loxDomeGeom, loxDomeMat));
 
         // 5. Dual-Propellant Injector Head Plumbing Architecture
-        // Central Axial LOX Inlet Pipe feeds directly into the roof of the Upper LOX Dome
+        // Central Axial LOX Inlet Pipe: True Hollow Tube with Negative Internal Bore
         const loxPipeR = Math.max(0.008, Rc * 0.28);
         const loxBoreR = loxPipeR * 0.72;
         const loxH = flangeThick * 2.2;
         const loxY0 = y_lox_top;
 
-        const loxPipeGeom = new THREE.CylinderGeometry(loxPipeR, loxPipeR, loxH, 24, 1, false, 0, cutawayPhi);
-        loxPipeGeom.translate(0, loxY0 + loxH / 2, 0);
+        // True Hollow Pipe Profile (Annular Lathe creates real hollow negative flow channel)
+        const loxPipePts = [
+          new THREE.Vector2(loxBoreR, 0),
+          new THREE.Vector2(loxPipeR, 0),
+          new THREE.Vector2(loxPipeR, loxH),
+          new THREE.Vector2(loxBoreR, loxH),
+          new THREE.Vector2(loxBoreR, 0)
+        ];
+        const loxPipeGeom = new THREE.LatheGeometry(loxPipePts, 24, 0, cutawayPhi);
+        loxPipeGeom.translate(0, loxY0, 0);
         injectorGroup.add(new THREE.Mesh(loxPipeGeom, loxDomeMat));
 
-        const loxBoreGeom = new THREE.CylinderGeometry(loxBoreR, loxBoreR, loxH * 1.02, 24, 1, false, 0, cutawayPhi);
-        loxBoreGeom.translate(0, loxY0 + loxH / 2, 0);
-        injectorGroup.add(new THREE.Mesh(loxBoreGeom, holeMat));
-
-        const loxFlangeGeom = new THREE.CylinderGeometry(loxPipeR * 1.42, loxPipeR * 1.42, flangeThick * 0.38, 24, 1, false, 0, cutawayPhi);
-        loxFlangeGeom.translate(0, loxY0 + loxH - flangeThick * 0.19, 0);
+        // Hollow LOX Flange with Open Central Aperture
+        const loxFlangePts = [
+          new THREE.Vector2(loxBoreR, 0),
+          new THREE.Vector2(loxPipeR * 1.42, 0),
+          new THREE.Vector2(loxPipeR * 1.42, flangeThick * 0.38),
+          new THREE.Vector2(loxBoreR, flangeThick * 0.38),
+          new THREE.Vector2(loxBoreR, 0)
+        ];
+        const loxFlangeGeom = new THREE.LatheGeometry(loxFlangePts, 24, 0, cutawayPhi);
+        loxFlangeGeom.translate(0, loxY0 + loxH - flangeThick * 0.38, 0);
         injectorGroup.add(new THREE.Mesh(loxFlangeGeom, boltMat));
+
+        // Negative Cutout: Drilled Flange Bolt Holes & Dome Roof Penetration Bore
+        const loxDomeRoofPort = new THREE.CylinderGeometry(loxBoreR, loxBoreR, 0.0025, 20);
+        loxDomeRoofPort.translate(0, loxY0, 0);
+        injectorGroup.add(new THREE.Mesh(loxDomeRoofPort, holeMat));
 
         for (let fb = 0; fb < 6; fb++) {
           const fAng = (fb / 6) * 2 * Math.PI;
           if (fAng <= cutawayPhi || cutawayPhi >= 1.99 * Math.PI) {
-            const fBolt = new THREE.CylinderGeometry(0.0016, 0.0016, flangeThick * 0.55, 6);
+            // Negative Drilled Bolt Hole
+            const fHole = new THREE.CylinderGeometry(0.0018, 0.0018, flangeThick * 0.42, 8);
+            fHole.translate(loxPipeR * 1.22 * Math.sin(fAng), loxY0 + loxH - flangeThick * 0.19, loxPipeR * 1.22 * Math.cos(fAng));
+            injectorGroup.add(new THREE.Mesh(fHole, holeMat));
+
+            const fBolt = new THREE.CylinderGeometry(0.0015, 0.0015, flangeThick * 0.60, 6);
             fBolt.translate(loxPipeR * 1.22 * Math.sin(fAng), loxY0 + loxH, loxPipeR * 1.22 * Math.cos(fAng));
             injectorGroup.add(new THREE.Mesh(fBolt, boltMat));
           }
@@ -3858,7 +3886,7 @@
         loxFluidRing.translate(0, loxY0 + loxH, 0);
         injectorGroup.add(new THREE.Mesh(loxFluidRing, loxFluidMat));
 
-        // Side Radial GOX Pipe feeds directly into the Lower GOX Plenum Housing
+        // Side Radial GOX Pipe: True Hollow Annular Cylinder with Open Bore
         const goxPipeR = Math.max(0.006, Rc * 0.18);
         const goxBoreR = goxPipeR * 0.70;
         const goxLen = Rc * 0.85;
@@ -3866,32 +3894,46 @@
         const goxX0 = Rc * 0.88;
         const goxX1 = goxX0 + goxLen;
 
-        const goxPipeGeom = new THREE.CylinderGeometry(goxPipeR, goxPipeR, goxLen, 20);
-        goxPipeGeom.rotateZ(Math.PI / 2);
-        goxPipeGeom.translate(goxX0 + goxLen / 2, goxY, 0);
-        injectorGroup.add(new THREE.Mesh(goxPipeGeom, goxPlenumMat));
+        const goxOuterTube = new THREE.CylinderGeometry(goxPipeR, goxPipeR, goxLen, 24, 1, true);
+        goxOuterTube.rotateZ(Math.PI / 2);
+        goxOuterTube.translate(goxX0 + goxLen / 2, goxY, 0);
+        injectorGroup.add(new THREE.Mesh(goxOuterTube, goxPlenumMat));
+
+        const goxInnerBore = new THREE.CylinderGeometry(goxBoreR, goxBoreR, goxLen * 1.01, 24, 1, true);
+        goxInnerBore.rotateZ(Math.PI / 2);
+        goxInnerBore.translate(goxX0 + goxLen / 2, goxY, 0);
+        const goxBoreMat = new THREE.MeshStandardMaterial({ color: 0x090d16, side: THREE.BackSide, roughness: 0.95 });
+        injectorGroup.add(new THREE.Mesh(goxInnerBore, goxBoreMat));
 
         const goxBossGeom = new THREE.CylinderGeometry(goxPipeR * 1.45, goxPipeR * 1.45, flangeThick * 0.5, 18);
         goxBossGeom.rotateZ(Math.PI / 2);
         goxBossGeom.translate(goxX0 + flangeThick * 0.25, goxY, 0);
         injectorGroup.add(new THREE.Mesh(goxBossGeom, boltMat));
 
-        const goxFlangeGeom = new THREE.CylinderGeometry(goxPipeR * 1.42, goxPipeR * 1.42, flangeThick * 0.35, 18);
-        goxFlangeGeom.rotateZ(Math.PI / 2);
-        goxFlangeGeom.translate(goxX1 - flangeThick * 0.17, goxY, 0);
-        injectorGroup.add(new THREE.Mesh(goxFlangeGeom, boltMat));
+        // Flange ring with open central fluid aperture
+        const goxFlangeRing = new THREE.RingGeometry(goxBoreR, goxPipeR * 1.42, 24);
+        goxFlangeRing.rotateY(Math.PI / 2);
+        goxFlangeRing.translate(goxX1, goxY, 0);
+        injectorGroup.add(new THREE.Mesh(goxFlangeRing, boltMat));
+
+        // Negative Cutout: Open circular penetration cut into GOX plenum wall
+        const goxPlenumPort = new THREE.CircleGeometry(goxBoreR, 18);
+        goxPlenumPort.rotateY(Math.PI / 2);
+        goxPlenumPort.translate(goxX0 + 0.0005, goxY, 0);
+        injectorGroup.add(new THREE.Mesh(goxPlenumPort, holeMat));
 
         [Math.PI / 4, 3 * Math.PI / 4, 5 * Math.PI / 4, 7 * Math.PI / 4].forEach(fa => {
+          // Negative Drilled Bolt Hole in GOX flange
+          const gh = new THREE.CylinderGeometry(0.0016, 0.0016, flangeThick * 0.38, 6);
+          gh.rotateZ(Math.PI / 2);
+          gh.translate(goxX1 - flangeThick * 0.17, goxY + goxPipeR * 1.20 * Math.sin(fa), goxPipeR * 1.20 * Math.cos(fa));
+          injectorGroup.add(new THREE.Mesh(gh, holeMat));
+
           const gb = new THREE.CylinderGeometry(0.0014, 0.0014, flangeThick * 0.5, 6);
           gb.rotateZ(Math.PI / 2);
           gb.translate(goxX1, goxY + goxPipeR * 1.20 * Math.sin(fa), goxPipeR * 1.20 * Math.cos(fa));
           injectorGroup.add(new THREE.Mesh(gb, boltMat));
         });
-
-        const goxHoleGeom = new THREE.CylinderGeometry(goxBoreR, goxBoreR, 0.002, 16);
-        goxHoleGeom.rotateZ(Math.PI / 2);
-        goxHoleGeom.translate(goxX1 + 0.0005, goxY, 0);
-        injectorGroup.add(new THREE.Mesh(goxHoleGeom, holeMat));
 
         const goxStream = new THREE.CylinderGeometry(goxBoreR * 0.95, goxBoreR * 0.95, 0.001, 16);
         goxStream.rotateZ(Math.PI / 2);
@@ -4266,6 +4308,20 @@
         ignTubeGeom.translate(rTube * sinIgn, yIgn, rTube * cosIgn);
         engineGroup.add(new THREE.Mesh(ignTubeGeom, boltMat));
 
+        // Negative Cutout 5b: Drilled Wall Penetration Hole through Inconel Jacket & GRCop-42 Liner
+        const ignWallBoreGeom = new THREE.CylinderGeometry(0.0058, 0.0058, (rJacket - Rc) * 1.06, 16);
+        ignWallBoreGeom.rotateZ(-ignAngle);
+        ignWallBoreGeom.rotateY(phiIgn - Math.PI / 2);
+        ignWallBoreGeom.translate(rTube * sinIgn, yIgn, rTube * cosIgn);
+        engineGroup.add(new THREE.Mesh(ignWallBoreGeom, holeMat));
+
+        // Negative Cutout 5c: Gas-Side Counterbored Flame Discharge Port (r = Rc)
+        const ignInnerSeat = new THREE.CircleGeometry(0.0062, 14);
+        ignInnerSeat.rotateZ(-ignAngle);
+        ignInnerSeat.rotateY(phiIgn - Math.PI / 2);
+        ignInnerSeat.translate(Rc * sinIgn, yIgn, Rc * cosIgn);
+        engineGroup.add(new THREE.Mesh(ignInnerSeat, holeMat));
+
         // 6. Active Plasma Spark Torch Flame Tip inside Combustion Zone
         const sparkMat = new THREE.MeshStandardMaterial({
           color: 0x38bdf8,
@@ -4307,6 +4363,27 @@
           }
         }
         engineGroup.add(channelRibGroup);
+
+        // Negative Cutouts 4a & 4b: Regenerative Coolant Manifold Feed & Discharge Ports
+        // Inflow feed port nozzle at throat turnaround
+        const inletPortGeom = new THREE.CylinderGeometry(0.0055, 0.0055, 0.012, 14);
+        inletPortGeom.translate(0, -(Rt + tw + hc + 0.010), 0);
+        engineGroup.add(new THREE.Mesh(inletPortGeom, boltMat));
+
+        const inletPortHole = new THREE.CircleGeometry(0.0038, 14);
+        inletPortHole.rotateX(-Math.PI / 2);
+        inletPortHole.translate(0, -(Rt + tw + hc + 0.016), 0);
+        engineGroup.add(new THREE.Mesh(inletPortHole, holeMat));
+
+        // Outflow discharge port nozzle near injector head
+        const outletPortGeom = new THREE.CylinderGeometry(0.0055, 0.0055, 0.012, 14);
+        outletPortGeom.translate(0, -(Rc + tw + hc + 0.010), 0);
+        engineGroup.add(new THREE.Mesh(outletPortGeom, boltMat));
+
+        const outletPortHole = new THREE.CircleGeometry(0.0038, 14);
+        outletPortHole.rotateX(-Math.PI / 2);
+        outletPortHole.translate(0, -(Rc + tw + hc + 0.016), 0);
+        engineGroup.add(new THREE.Mesh(outletPortHole, holeMat));
 
         // =====================================================================
         // Feature 3: Nozzle Stiffener Ring Bands (Conical vs Bell)
